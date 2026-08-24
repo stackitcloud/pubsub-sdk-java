@@ -1,6 +1,7 @@
 package org.example.pubsub.models
 
 import java.time.Instant
+import java.util.Base64
 
 /**
  * A message received from a topic subscription.
@@ -17,7 +18,19 @@ data class Message(
     val data: String,
     val createTime: Instant,
     val deliveryAttempts: Long
-)
+) {
+    /**
+     * Decodes the base64-encoded data to bytes.
+     */
+    val payload: ByteArray
+        get() = Base64.getDecoder().decode(data)
+
+    /**
+     * Decodes the base64-encoded data to a UTF-8 string.
+     */
+    val text: String
+        get() = String(Base64.getDecoder().decode(data), java.nio.charset.StandardCharsets.UTF_8)
+}
 
 /**
  * Response containing messages pulled from a subscription.
