@@ -15,11 +15,12 @@ import org.example.pubsub.retry.isRetryableException
 import org.example.pubsub.retry.isRetryableStatusCode
 import java.io.IOException
 import java.time.Duration
+import java.util.UUID
 
 /**
  * Publisher interface for sending messages to a STACKIT PubSub topic.
  *
- * @param topicId The topic identifier.
+ * @param topicId The topic UUID.
  * @param baseDataplaneUrl The dataplane base URL.
  * @param authProvider Provider for STACKIT authorization tokens.
  * @param retryConfig Configuration for retry behavior.
@@ -28,7 +29,7 @@ import java.time.Duration
  * @param purgeCalls Total count of purge calls made.
  */
 class PubSubPublisher(
-    private val topicId: String,
+    private val topicId: UUID,
     private val baseDataplaneUrl: String,
     private val authProvider: StackitAuthProvider,
     private val retryConfig: RetryConfig = RetryConfig.Default
@@ -50,10 +51,6 @@ class PubSubPublisher(
 
     var purgeCalls: Int = 0
         private set
-
-    init {
-        require(topicId.isNotBlank()) { "topicId must not be blank" }
-    }
 
     /**
      * Publish messages to the topic.

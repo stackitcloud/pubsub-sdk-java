@@ -17,6 +17,7 @@ import org.example.pubsub.retry.isRetryableException
 import org.example.pubsub.retry.isRetryableStatusCode
 import java.io.IOException
 import java.time.Duration
+import java.util.UUID
 
 /**
  * Subscriber interface for receiving messages from a STACKIT PubSub subscription.
@@ -29,7 +30,7 @@ import java.time.Duration
  * @param longPullDurationMs Long pull timeout in milliseconds.
  */
 class PubSubSubscriber(
-    private val subscriptionId: String,
+    private val subscriptionId: UUID,
     private val baseDataplaneUrl: String,
     private val authProvider: StackitAuthProvider,
     private val retryConfig: RetryConfig = RetryConfig.Default,
@@ -45,7 +46,6 @@ class PubSubSubscriber(
         .build()
 
     init {
-        require(subscriptionId.isNotBlank()) { "subscriptionId must not be blank" }
         require(maxMessages in 1..32) { "maxMessages must be between 1 and 32" }
         require(longPullDurationMs in 100..5000) { "longPullDurationMs must be between 100 and 5000" }
     }

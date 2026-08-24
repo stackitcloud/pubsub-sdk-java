@@ -7,6 +7,7 @@ import org.example.pubsub.config.Region
 import org.example.pubsub.publisher.PubSubPublisher
 import org.example.pubsub.retry.RetryConfig
 import org.example.pubsub.subscriber.PubSubSubscriber
+import java.util.UUID
 
 /**
  * Main entry point for the STACKIT PubSub SDK.
@@ -14,13 +15,13 @@ import org.example.pubsub.subscriber.PubSubSubscriber
  * Provides a unified client for both publishing and subscribing,
  * sharing authentication and HTTP client resources.
  *
- * @param topicId The topic identifier.
+ * @param topicId The topic UUID.
  * @param authConfig Authentication configuration.
  * @param region API region (default: EU01).
  * @param environment STACKIT environment (default: PROD).
  */
 data class PubSubClient(
-    val topicId: String,
+    val topicId: UUID,
     val authConfig: AuthConfig? = null,
     val region: Region = Region.EU01,
     val environment: Environment = Environment.PROD
@@ -54,7 +55,7 @@ data class PubSubClient(
      * @return Configured PubSubSubscriber.
      */
     fun getSubscriber(
-        subscriptionId: String,
+        subscriptionId: UUID,
         retryConfig: RetryConfig? = null,
         maxMessages: Int = 16,
         longPullDurationMs: Int = 5000
