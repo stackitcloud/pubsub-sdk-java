@@ -60,7 +60,7 @@ class StackitAuthProvider(
             val httpClient = OkHttpClient.Builder().build()
 
             val authenticator = KeyFlowAuthenticator(httpClient, coreConfig)
-            val accessToken = authenticator.getAccessToken()
+            val accessToken = authenticator.accessToken
             val expiresAt = Instant.now().plus(TOKEN_LIFETIME)
             accessToken to expiresAt
         } catch (e: PubSubAuthError) {
