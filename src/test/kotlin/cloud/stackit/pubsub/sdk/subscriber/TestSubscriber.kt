@@ -204,7 +204,7 @@ class TestSubscriberPull {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message!!.contains("retries"))
+        assertTrue(thrown.message.contains("retries"))
         assertEquals(3, server.requestCount)
     }
 }
@@ -371,7 +371,7 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message!!.contains("Not found"))
+        assertTrue(thrown.message.contains("Not found"))
     }
 
     @Test
@@ -420,7 +420,7 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message!!.contains("too large"))
+        assertTrue(thrown.message.contains("too large"))
     }
 
     @Test
@@ -449,7 +449,7 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message!!.contains("500"))
+        assertTrue(thrown.message.contains("500"))
     }
 
     @Test
@@ -462,7 +462,7 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.ack(listOf("ack-1"))
         }
-        assertTrue(thrown.message!!.contains("too large"))
+        assertTrue(thrown.message.contains("too large"))
     }
 
     @Test
@@ -491,7 +491,7 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.nack(listOf("nack-1"))
         }
-        assertTrue(thrown.message!!.contains("500"))
+        assertTrue(thrown.message.contains("500"))
     }
 
     @Test
@@ -506,6 +506,6 @@ class TestSubscriberErrorHandling {
         val thrown = assertThrows(PubSubAuthError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message!!.contains("Request failed"))
+        assertTrue(thrown.message.contains("Request failed"))
     }
 }

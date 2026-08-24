@@ -22,13 +22,11 @@ class TestPubSubClientInit {
     fun `creates default AuthConfig automatically`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config)
-        assert(client.authProvider != null)
     }
 
     @Test
     fun `accepts custom AuthConfig`() {
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = AuthConfig(serviceAccountKeyPath = "sa-key.json"))
-        assert(client.authProvider != null)
     }
 
     @Test
@@ -108,7 +106,6 @@ class TestPubSubClientFactories {
             baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
             authProvider = authProvider
         )
-        assert(publisher != null)
     }
 
     @Test
@@ -120,7 +117,6 @@ class TestPubSubClientFactories {
             baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
             authProvider = authProvider
         )
-        assert(subscriber != null)
     }
 
     @Test
@@ -129,7 +125,6 @@ class TestPubSubClientFactories {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val publisher = client.getPublisher()
-        assert(publisher != null)
     }
 
     @Test
@@ -139,7 +134,6 @@ class TestPubSubClientFactories {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val subscriber = client.getSubscriber(subscriptionId)
-        assert(subscriber != null)
     }
 
     @Test
@@ -148,7 +142,6 @@ class TestPubSubClientFactories {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val publisher = client.getPublisher(retryConfig = null)
-        assert(publisher != null)
     }
 
     @Test
@@ -158,6 +151,5 @@ class TestPubSubClientFactories {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val subscriber = client.getSubscriber(subscriptionId, retryConfig = null)
-        assert(subscriber != null)
     }
 }

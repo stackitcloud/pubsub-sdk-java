@@ -208,7 +208,7 @@ class TestPublisherPublish {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("retries"))
+        assertTrue(thrown.message.contains("retries"))
         assertEquals(3, server.requestCount)
     }
 
@@ -222,7 +222,7 @@ class TestPublisherPublish {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("Bad request"))
+        assertTrue(thrown.message.contains("Bad request"))
     }
 
     @Test
@@ -235,7 +235,7 @@ class TestPublisherPublish {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("Not found"))
+        assertTrue(thrown.message.contains("Not found"))
     }
 
     @Test
@@ -298,7 +298,7 @@ class TestPublisherPurge {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.purgeTopic()
         }
-        assertTrue(thrown.message!!.contains("404"))
+        assertTrue(thrown.message.contains("404"))
     }
 
     @Test
@@ -327,7 +327,7 @@ class TestPublisherPurge {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.purgeTopic()
         }
-        assertTrue(thrown.message!!.contains("500"))
+        assertTrue(thrown.message.contains("500"))
     }
 }
 
@@ -367,7 +367,7 @@ class TestPublisherErrorResponses {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("too large"))
+        assertTrue(thrown.message.contains("too large"))
     }
 
     @Test
@@ -396,7 +396,7 @@ class TestPublisherErrorResponses {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("500"))
+        assertTrue(thrown.message.contains("500"))
     }
 
     @Test
@@ -425,7 +425,7 @@ class TestPublisherErrorResponses {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("502"))
+        assertTrue(thrown.message.contains("502"))
     }
 
     @Test
@@ -440,6 +440,6 @@ class TestPublisherErrorResponses {
         val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message!!.contains("Request failed"))
+        assertTrue(thrown.message.contains("Request failed"))
     }
 }

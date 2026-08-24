@@ -36,7 +36,6 @@ class TestAuthConfig {
             tokenEndpoint = "https://custom/token"
         )
         val coreConfig = config.toCoreConfiguration()
-        assert(coreConfig != null)
     }
 
     @Test
@@ -47,7 +46,6 @@ class TestAuthConfig {
             tokenEndpoint = "https://custom/token"
         )
         val coreConfig = config.toCoreConfiguration()
-        assert(coreConfig != null)
     }
 }
 
@@ -90,13 +88,11 @@ class TestAuthProviderInterface {
     fun `StackitAuthProvider implements AuthProvider`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val provider: AuthProvider = StackitAuthProvider(config)
-        assert(provider is AuthProvider)
     }
 
     @Test
     fun `MockAuthProvider implements AuthProvider`() {
         val provider: AuthProvider = MockAuthProvider()
-        assert(provider is AuthProvider)
     }
 
     @Test
