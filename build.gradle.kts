@@ -1,8 +1,10 @@
 plugins {
+    `java-library`
+    `maven-publish`
     kotlin("jvm") version "2.4.10"
 }
 
-group = "org.example"
+group = "cloud.stackit.pubsub.sdk"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -10,11 +12,18 @@ repositories {
 }
 
 dependencies {
+    implementation("cloud.stackit.sdk:core:0.4.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation(kotlin("test"))
 }
 
 kotlin {
-    jvmToolchain(26)
+    jvmToolchain(21)
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
 }
 
 tasks.test {
