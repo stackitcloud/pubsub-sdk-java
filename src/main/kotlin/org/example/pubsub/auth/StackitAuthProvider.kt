@@ -15,8 +15,8 @@ class StackitAuthProvider(
 
     private companion object {
         val EMPTY_TOKEN = TokenRecord(null, Instant.EPOCH)
-        val TOKEN_EXPIRY_BUFFER = java.time.Duration.ofSeconds(60)
-        val TOKEN_LIFETIME = java.time.Duration.ofSeconds(3600)
+        val TOKEN_EXPIRY_BUFFER: java.time.Duration = java.time.Duration.ofSeconds(60)
+        val TOKEN_LIFETIME: java.time.Duration = java.time.Duration.ofSeconds(3600)
     }
 
     private data class TokenRecord(
