@@ -59,12 +59,21 @@ class IntegrationTest {
         saKeyFile.writeText(saKey)
         saKeyFile.deleteOnExit()
 
-        authConfig = AuthConfig(serviceAccountKeyPath = saKeyFile.absolutePath)
+        val tokenUrl = System.getenv("TOKEN_URL") ?: "https://accounts.qa.stackit.cloud/oauth/v2/token"
+        authConfig = AuthConfig(serviceAccountKeyPath = saKeyFile.absolutePath, tokenEndpoint = tokenUrl)
         authProvider = StackitAuthProvider(authConfig)
         projectNumber = project
-        baseControlPlaneUrl = "https://pubsub.$projectNumber.${Environment.PROD.hostnamePrefix}${Region.EU01.value}.onstackit.cloud"
+        baseControlPlaneUrl = "https://pubsub-dev.api.${Region.EU01.value}.qa.stackit.cloud"
         topicId = UUID.randomUUID()
         subscriptionId = UUID.randomUUID()
+
+        // Get dataplane URL from env or construct from topic
+        val customBaseDataplaneUrl = System.getenv("BASE_URL")
+        if (customBaseDataplaneUrl != null && customBaseDataplaneUrl.isNotBlank()) {
+            baseDataplaneUrl = customBaseDataplaneUrl
+        } else {
+            baseDataplaneUrl = "https://$topicId.pubsub.${Region.EU01.value}.dev.onstackit.cloud"
+        }
 
         createTopic()
         createSubscription()
@@ -86,9 +95,8 @@ class IntegrationTest {
     private fun createTopic() {
         val requestBody = """
             {
-                "name": "${topicId}",
-                "labels": {},
-                "messageRetentionDuration": "600s"
+                "displayName": "sdk-test-${topicId}",
+                "description": "Created by SDK integration tests"
             }
         """.trimIndent()
 
@@ -96,7 +104,7 @@ class IntegrationTest {
         val body = requestBody.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$baseControlPlaneUrl/v1alpha/topics/$projectNumber:${topicId}")
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
             .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
@@ -123,11 +131,8 @@ class IntegrationTest {
     private fun createSubscription() {
         val requestBody = """
             {
-                "name": "${subscriptionId}",
-                "topic": "$projectNumber:${topicId}",
-                "labels": {},
-                "retainUntilAcked": "300s",
-                "deliveryGuarantee": "AT_LEAST_ONCE"
+                "displayName": "sdk-sub-${subscriptionId}",
+                "description": "Created by SDK integration tests"
             }
         """.trimIndent()
 
@@ -135,7 +140,7 @@ class IntegrationTest {
         val body = requestBody.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$baseControlPlaneUrl/v1alpha/subscriptions/$projectNumber:$projectNumber:${topicId}:${subscriptionId}")
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$topicId/subscriptions")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
             .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
@@ -161,7 +166,7 @@ class IntegrationTest {
 
     private fun deleteTopic() {
         val request = Request.Builder()
-            .url("$baseControlPlaneUrl/v1alpha/topics/$projectNumber:${topicId}")
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$topicId")
             .addHeader("Accept", "application/json")
             .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
             .delete()
@@ -183,7 +188,7 @@ class IntegrationTest {
 
     private fun deleteSubscription() {
         val request = Request.Builder()
-            .url("$baseControlPlaneUrl/v1alpha/subscriptions/$projectNumber:$projectNumber:${topicId}:${subscriptionId}")
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$topicId/subscriptions/$subscriptionId")
             .addHeader("Accept", "application/json")
             .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
             .delete()
@@ -267,7 +272,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val publisher = client.getPublisher(RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000))
@@ -321,7 +326,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val publisher = client.getPublisher(RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000))
@@ -374,7 +379,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val publisher = client.getPublisher()
@@ -393,7 +398,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val publisher = client.getPublisher()
@@ -420,7 +425,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val expectedUrl = "https://$topicId.pubsub.eu01.onstackit.cloud"
@@ -435,7 +440,7 @@ class IntegrationTest {
             topicId = topicId,
             authConfig = authConfig,
             region = Region.EU01,
-            environment = Environment.PROD
+            environment = Environment.DEV
         )
 
         val publisher = client.getPublisher()
