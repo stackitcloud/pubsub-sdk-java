@@ -106,6 +106,16 @@ class TestRetryableException {
         val nested = RuntimeException(IOException("nested"))
         assert(isRetryable(nested))
     }
+
+    @Test
+    fun `RuntimeException is not retryable`() {
+        assert(!isRetryableException(RuntimeException("generic error")))
+    }
+
+    @Test
+    fun `IllegalArgumentException is not retryable`() {
+        assert(!isRetryableException(IllegalArgumentException("invalid argument")))
+    }
 }
 
 class TestCalculateDelay {

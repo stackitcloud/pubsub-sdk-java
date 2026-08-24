@@ -409,4 +409,103 @@ class TestSubscriberErrorHandling {
             subscriber.nack(listOf("nack-1"))
         }
     }
+
+    @Test
+    fun `pull 413 throws too large`() {
+        val response = MockResponse()
+            .setResponseCode(413)
+            .setBody("Request body too large")
+
+        val subscriber = createSubscriber(response)
+        val thrown = assertThrows(PubSubAuthError::class.java) {
+            subscriber.pull()
+        }
+        assertTrue(thrown.message!!.contains("too large"))
+    }
+
+    @Test
+    fun `pull 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val subscriber = PubSubSubscriber(
+            subscriptionId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubAuthError::class.java) {
+            subscriber.pull()
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+
+    @Test
+    fun `ack 413 throws too large`() {
+        val response = MockResponse()
+            .setResponseCode(413)
+            .setBody("Request body too large")
+
+        val subscriber = createSubscriber(response)
+        val thrown = assertThrows(PubSubAuthError::class.java) {
+            subscriber.ack(listOf("ack-1"))
+        }
+        assertTrue(thrown.message!!.contains("too large"))
+    }
+
+    @Test
+    fun `nack 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val subscriber = PubSubSubscriber(
+            subscriptionId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubAuthError::class.java) {
+            subscriber.nack(listOf("nack-1"))
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+
+    @Test
+    fun `pull IOException throws request failed`() {
+        server.shutdown()
+
+        val subscriber = PubSubSubscriber(
+            subscriptionId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+        val thrown = assertThrows(PubSubAuthError::class.java) {
+            subscriber.pull()
+        }
+        assertTrue(thrown.message!!.contains("Request failed"))
+    }
 }

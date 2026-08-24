@@ -38,6 +38,17 @@ class TestAuthConfig {
         val coreConfig = config.toCoreConfiguration()
         assert(coreConfig != null)
     }
+
+    @Test
+    fun `toCoreConfiguration handles null privateKeyPath`() {
+        val config = AuthConfig(
+            serviceAccountKeyPath = "sa-key.json",
+            privateKeyPath = null,
+            tokenEndpoint = "https://custom/token"
+        )
+        val coreConfig = config.toCoreConfiguration()
+        assert(coreConfig != null)
+    }
 }
 
 class TestStackitAuthProvider {

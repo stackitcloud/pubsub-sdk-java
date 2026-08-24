@@ -141,4 +141,23 @@ class TestPubSubClientFactories {
         val subscriber = client.getSubscriber(subscriptionId)
         assert(subscriber != null)
     }
+
+    @Test
+    fun `getPublisher with null retryConfig uses default`() {
+        val topicId = UUID.randomUUID()
+        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val client = PubSubClient(topicId = topicId, authConfig = config)
+        val publisher = client.getPublisher(retryConfig = null)
+        assert(publisher != null)
+    }
+
+    @Test
+    fun `getSubscriber with null retryConfig uses default`() {
+        val topicId = UUID.randomUUID()
+        val subscriptionId = UUID.randomUUID()
+        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val client = PubSubClient(topicId = topicId, authConfig = config)
+        val subscriber = client.getSubscriber(subscriptionId, retryConfig = null)
+        assert(subscriber != null)
+    }
 }

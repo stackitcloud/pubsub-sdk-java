@@ -300,4 +300,146 @@ class TestPublisherPurge {
         }
         assertTrue(thrown.message!!.contains("404"))
     }
+
+    @Test
+    fun `purge 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+            publisher.purgeTopic()
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+}
+
+class TestPublisherErrorResponses {
+    private val server = MockWebServer()
+    private lateinit var baseUrl: String
+    private lateinit var authProvider: MockAuthProvider
+
+    @BeforeEach
+    fun setUp() {
+        server.start()
+        baseUrl = server.url("/").toString()
+        authProvider = MockAuthProvider()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    private fun createPublisher(response: MockResponse): PubSubPublisher {
+        server.enqueue(response)
+        return PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+    }
+
+    @Test
+    fun `publish 413 throws too large`() {
+        val response = MockResponse()
+            .setResponseCode(413)
+            .setBody("Request body too large")
+
+        val publisher = createPublisher(response)
+        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("too large"))
+    }
+
+    @Test
+    fun `publish 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+
+    @Test
+    fun `publish 502 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(502)
+            .setBody("Bad Gateway")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("502"))
+    }
+
+    @Test
+    fun `publish IOException throws request failed`() {
+        server.shutdown()
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("Request failed"))
+    }
 }
