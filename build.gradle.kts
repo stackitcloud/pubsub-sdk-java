@@ -69,10 +69,7 @@ tasks.jacocoTestCoverageVerification {
                 "cloud.stackit.pubsub.sdk.integration.*",
                 "cloud.stackit.pubsub.sdk.auth.StackitAuthProvider*",
                 "cloud.stackit.pubsub.sdk.auth.AuthConfig*",
-                "cloud.stackit.pubsub.sdk.errors.PubSubAuthError*",
-                "cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber*",
-                "cloud.stackit.pubsub.sdk.retry.RetryUtilsKt",
-                "cloud.stackit.pubsub.sdk.client.PubSubClient*"
+                "cloud.stackit.pubsub.sdk.retry.RetryUtilsKt"
             )
             limit {
                 minimum = BigDecimal("0.85")

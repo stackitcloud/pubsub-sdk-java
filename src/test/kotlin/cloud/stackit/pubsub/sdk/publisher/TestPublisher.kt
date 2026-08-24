@@ -2,6 +2,7 @@ package cloud.stackit.pubsub.sdk.publisher
 
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.models.PublishMessage
 import cloud.stackit.pubsub.sdk.retry.RetryConfig
 import cloud.stackit.pubsub.sdk.test.MockAuthProvider
@@ -71,9 +72,9 @@ class TestPublisherPublish {
         val messages = listOf(PublishMessage("aGVsbG8="), PublishMessage("d29ybGQ="))
         val result = publisher.publish(messages)
 
-        assertTrue(result.messageIds == listOf(1L, 2L, 3L))
-        assertEquals(2, publisher.messagesSent)
-        assertEquals(1, publisher.publishCalls)
+        assertEquals(listOf(1L, 2L, 3L), result.messageIds)
+        assertEquals(2, publisher.messagesSent.get())
+        assertEquals(1, publisher.publishCalls.get())
     }
 
     @Test
@@ -135,7 +136,7 @@ class TestPublisherPublish {
         val results = publisher.publishBatch(messages, batchSize = 2)
 
         assertEquals(3, results.size)
-        assertEquals(3, publisher.publishCalls)
+        assertEquals(3, publisher.publishCalls.get())
     }
 
     @Test
@@ -205,10 +206,10 @@ class TestPublisherPublish {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("retries"))
+        assertTrue(thrown.message!!.contains("retries"))
         assertEquals(3, server.requestCount)
     }
 
@@ -219,10 +220,10 @@ class TestPublisherPublish {
             .setBody("Bad request")
 
         val publisher = createPublisher(errorResponse)
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.BadRequest::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("Bad request"))
+        assertTrue(thrown.message!!.contains("Bad request"))
     }
 
     @Test
@@ -232,22 +233,23 @@ class TestPublisherPublish {
             .setBody("Not found")
 
         val publisher = createPublisher(errorResponse)
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.NotFound::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("Not found"))
+        assertTrue(thrown.message!!.contains("Not found"))
     }
 
     @Test
-    fun `publish 401 throws auth error`() {
+    fun `publish 401 throws unauthorized`() {
         val errorResponse = MockResponse()
             .setResponseCode(401)
             .setBody("Unauthorized")
 
         val publisher = createPublisher(errorResponse)
-        assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.Unauthorized::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
+        assertTrue(thrown.message!!.contains("Unauthorized"))
     }
 }
 
@@ -285,7 +287,7 @@ class TestPublisherPurge {
 
         val publisher = createPublisher(response)
         publisher.purgeTopic()
-        assertEquals(1, publisher.purgeCalls)
+        assertEquals(1, publisher.purgeCalls.get())
     }
 
     @Test
@@ -295,10 +297,10 @@ class TestPublisherPurge {
             .setBody("Not found")
 
         val publisher = createPublisher(response)
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.NotFound::class.java) {
             publisher.purgeTopic()
         }
-        assertTrue(thrown.message.contains("404"))
+        assertTrue(thrown.message!!.contains("Not found"))
     }
 
     @Test
@@ -324,10 +326,10 @@ class TestPublisherPurge {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             publisher.purgeTopic()
         }
-        assertTrue(thrown.message.contains("500"))
+        assertTrue(thrown.message!!.contains("500"))
     }
 }
 
@@ -364,10 +366,10 @@ class TestPublisherErrorResponses {
             .setBody("Request body too large")
 
         val publisher = createPublisher(response)
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.PayloadTooLarge::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("too large"))
+        assertTrue(thrown.message!!.contains("too large"))
     }
 
     @Test
@@ -393,10 +395,10 @@ class TestPublisherErrorResponses {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("500"))
+        assertTrue(thrown.message!!.contains("500"))
     }
 
     @Test
@@ -422,10 +424,10 @@ class TestPublisherErrorResponses {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("502"))
+        assertTrue(thrown.message!!.contains("502"))
     }
 
     @Test
@@ -437,9 +439,9 @@ class TestPublisherErrorResponses {
             baseDataplaneUrl = baseUrl,
             authProvider = authProvider
         )
-        val thrown = assertThrows(cloud.stackit.pubsub.sdk.errors.PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.RequestFailed::class.java) {
             publisher.publish(listOf(PublishMessage("dGVzdA==")))
         }
-        assertTrue(thrown.message.contains("Request failed"))
+        assertTrue(thrown.message!!.contains("Request failed"))
     }
 }

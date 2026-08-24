@@ -2,8 +2,8 @@ package cloud.stackit.pubsub.sdk.subscriber
 
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.test.MockAuthProvider
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
 import cloud.stackit.pubsub.sdk.retry.RetryConfig
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -142,7 +142,7 @@ class TestSubscriberPull {
             PubSubSubscriber(
                 subscriptionId = UUID.randomUUID(),
                 baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
-                authProvider = authProvider,
+                authProvider = MockAuthProvider(),
                 longPullDurationMs = 10000
             )
         }
@@ -201,10 +201,10 @@ class TestSubscriberPull {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message.contains("retries"))
+        assertTrue(thrown.message!!.contains("retries"))
         assertEquals(3, server.requestCount)
     }
 }
@@ -368,22 +368,23 @@ class TestSubscriberErrorHandling {
             .setBody("Not found")
 
         val subscriber = createSubscriber(response)
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.NotFound::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message.contains("Not found"))
+        assertTrue(thrown.message!!.contains("Not found"))
     }
 
     @Test
-    fun `pull 401 throws auth error`() {
+    fun `pull 401 throws unauthorized`() {
         val response = MockResponse()
             .setResponseCode(401)
             .setBody("Unauthorized")
 
         val subscriber = createSubscriber(response)
-        assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.Unauthorized::class.java) {
             subscriber.pull()
         }
+        assertTrue(thrown.message!!.contains("Unauthorized"))
     }
 
     @Test
@@ -393,7 +394,7 @@ class TestSubscriberErrorHandling {
             .setBody("Not found")
 
         val subscriber = createSubscriber(response)
-        assertThrows(PubSubAuthError::class.java) {
+        assertThrows(PubSubError.HttpError.NotFound::class.java) {
             subscriber.ack(listOf("ack-1"))
         }
     }
@@ -405,7 +406,7 @@ class TestSubscriberErrorHandling {
             .setBody("Not found")
 
         val subscriber = createSubscriber(response)
-        assertThrows(PubSubAuthError::class.java) {
+        assertThrows(PubSubError.HttpError.NotFound::class.java) {
             subscriber.nack(listOf("nack-1"))
         }
     }
@@ -417,10 +418,10 @@ class TestSubscriberErrorHandling {
             .setBody("Request body too large")
 
         val subscriber = createSubscriber(response)
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.PayloadTooLarge::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message.contains("too large"))
+        assertTrue(thrown.message!!.contains("too large"))
     }
 
     @Test
@@ -446,10 +447,10 @@ class TestSubscriberErrorHandling {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message.contains("500"))
+        assertTrue(thrown.message!!.contains("500"))
     }
 
     @Test
@@ -459,10 +460,10 @@ class TestSubscriberErrorHandling {
             .setBody("Request body too large")
 
         val subscriber = createSubscriber(response)
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.PayloadTooLarge::class.java) {
             subscriber.ack(listOf("ack-1"))
         }
-        assertTrue(thrown.message.contains("too large"))
+        assertTrue(thrown.message!!.contains("too large"))
     }
 
     @Test
@@ -488,10 +489,10 @@ class TestSubscriberErrorHandling {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
             subscriber.nack(listOf("nack-1"))
         }
-        assertTrue(thrown.message.contains("500"))
+        assertTrue(thrown.message!!.contains("500"))
     }
 
     @Test
@@ -503,9 +504,9 @@ class TestSubscriberErrorHandling {
             baseDataplaneUrl = baseUrl,
             authProvider = authProvider
         )
-        val thrown = assertThrows(PubSubAuthError::class.java) {
+        val thrown = assertThrows(PubSubError.RequestFailed::class.java) {
             subscriber.pull()
         }
-        assertTrue(thrown.message.contains("Request failed"))
+        assertTrue(thrown.message!!.contains("Request failed"))
     }
 }

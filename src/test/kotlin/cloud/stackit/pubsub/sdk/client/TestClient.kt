@@ -3,10 +3,10 @@ package cloud.stackit.pubsub.sdk.client
 import cloud.stackit.pubsub.sdk.auth.AuthConfig
 import cloud.stackit.pubsub.sdk.config.Environment
 import cloud.stackit.pubsub.sdk.config.Region
-import cloud.stackit.pubsub.sdk.publisher.PubSubPublisher
-import cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber
+import cloud.stackit.pubsub.sdk.retry.RetryConfig
 import cloud.stackit.pubsub.sdk.test.MockAuthProvider
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
 import java.util.UUID
 
 class TestPubSubClientInit {
@@ -15,46 +15,43 @@ class TestPubSubClientInit {
         val topicId = UUID.randomUUID()
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
-        assert(client.topicId == topicId)
-    }
-
-    @Test
-    fun `creates default AuthConfig automatically`() {
-        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
-        val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config)
+        assertEquals(topicId, client.topicId)
     }
 
     @Test
     fun `accepts custom AuthConfig`() {
-        val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = AuthConfig(serviceAccountKeyPath = "sa-key.json"))
+        val topicId = UUID.randomUUID()
+        val customConfig = AuthConfig(serviceAccountKey = "test-key")
+        val client = PubSubClient(topicId = topicId, authConfig = customConfig)
+        assertNotNull(client.authProvider)
     }
 
     @Test
     fun `sets default region to EU01`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config)
-        assert(client.region == Region.EU01)
+        assertEquals(Region.EU01, client.region)
     }
 
     @Test
     fun `sets default environment to PROD`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config)
-        assert(client.environment == Environment.PROD)
+        assertEquals(Environment.PROD, client.environment)
     }
 
     @Test
     fun `accepts custom region`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config, region = Region.EU01)
-        assert(client.region == Region.EU01)
+        assertEquals(Region.EU01, client.region)
     }
 
     @Test
     fun `accepts custom environment`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config, environment = Environment.QA)
-        assert(client.environment == Environment.QA)
+        assertEquals(Environment.QA, client.environment)
     }
 
     @Test
@@ -62,7 +59,7 @@ class TestPubSubClientInit {
         val topicId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000")
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config)
-        assert(client.baseDataplaneUrl.contains(topicId.toString()))
+        assertTrue(client.baseDataplaneUrl.contains(topicId.toString()))
     }
 
     @Test
@@ -70,29 +67,29 @@ class TestPubSubClientInit {
         val topicId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000")
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = topicId, authConfig = config, region = Region.EU01)
-        assert(client.baseDataplaneUrl == "https://$topicId.pubsub.eu01.onstackit.cloud")
+        assertEquals("https://$topicId.pubsub.eu01.onstackit.cloud", client.baseDataplaneUrl)
     }
 
     @Test
     fun `builds url without prefix for PROD environment`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config, environment = Environment.PROD)
-        assert(!client.baseDataplaneUrl.contains(".dev."))
-        assert(!client.baseDataplaneUrl.contains(".qa."))
+        assertFalse(client.baseDataplaneUrl.contains(".dev."))
+        assertFalse(client.baseDataplaneUrl.contains(".qa."))
     }
 
     @Test
     fun `builds url with dev prefix for DEV environment`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config, environment = Environment.DEV)
-        assert(client.baseDataplaneUrl.contains(".dev."))
+        assertTrue(client.baseDataplaneUrl.contains(".dev."))
     }
 
     @Test
     fun `builds url with qa prefix for QA environment`() {
         val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
         val client = PubSubClient(topicId = UUID.randomUUID(), authConfig = config, environment = Environment.QA)
-        assert(client.baseDataplaneUrl.contains(".qa."))
+        assertTrue(client.baseDataplaneUrl.contains(".qa."))
     }
 }
 
@@ -101,55 +98,76 @@ class TestPubSubClientFactories {
     fun `getPublisher returns configured publisher`() {
         val topicId = UUID.randomUUID()
         val authProvider = MockAuthProvider()
-        val publisher = PubSubPublisher(
+        val publisher = cloud.stackit.pubsub.sdk.publisher.PubSubPublisher(
             topicId = topicId,
             baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
             authProvider = authProvider
         )
+        assertEquals(0, publisher.publishCalls.get())
     }
 
     @Test
     fun `getSubscriber returns configured subscriber`() {
         val subscriptionId = UUID.randomUUID()
         val authProvider = MockAuthProvider()
-        val subscriber = PubSubSubscriber(
+        val subscriber = cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber(
             subscriptionId = subscriptionId,
             baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
             authProvider = authProvider
         )
+        assertNotNull(subscriber)
     }
 
     @Test
-    fun `getPublisher shares auth provider`() {
+    fun `getPublisher uses shared auth provider`() {
         val topicId = UUID.randomUUID()
-        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val config = AuthConfig(serviceAccountKey = "test-key")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val publisher = client.getPublisher()
+        assertNotNull(publisher)
+        assertEquals(0, publisher.publishCalls.get())
     }
 
     @Test
-    fun `getSubscriber shares auth provider`() {
+    fun `getSubscriber uses shared auth provider`() {
         val topicId = UUID.randomUUID()
         val subscriptionId = UUID.randomUUID()
-        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val config = AuthConfig(serviceAccountKey = "test-key")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val subscriber = client.getSubscriber(subscriptionId)
+        assertNotNull(subscriber)
     }
 
     @Test
     fun `getPublisher with null retryConfig uses default`() {
         val topicId = UUID.randomUUID()
-        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val config = AuthConfig(serviceAccountKey = "test-key")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val publisher = client.getPublisher(retryConfig = null)
+        assertNotNull(publisher)
     }
 
     @Test
     fun `getSubscriber with null retryConfig uses default`() {
         val topicId = UUID.randomUUID()
         val subscriptionId = UUID.randomUUID()
-        val config = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+        val config = AuthConfig(serviceAccountKey = "test-key")
         val client = PubSubClient(topicId = topicId, authConfig = config)
         val subscriber = client.getSubscriber(subscriptionId, retryConfig = null)
+        assertNotNull(subscriber)
+    }
+
+    @Test
+    fun `getSubscriber respects maxMessages and longPullDurationMs`() {
+        val topicId = UUID.randomUUID()
+        val subscriptionId = UUID.randomUUID()
+        val config = AuthConfig(serviceAccountKey = "test-key")
+        val client = PubSubClient(topicId = topicId, authConfig = config)
+        val subscriber = client.getSubscriber(
+            subscriptionId,
+            maxMessages = 8,
+            longPullDurationMs = 3000
+        )
+        assertNotNull(subscriber)
     }
 }

@@ -3,7 +3,7 @@ package cloud.stackit.pubsub.sdk.auth
 import cloud.stackit.sdk.core.KeyFlowAuthenticator
 import cloud.stackit.sdk.core.config.CoreConfiguration
 import okhttp3.OkHttpClient
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import java.security.spec.InvalidKeySpecException
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -48,12 +48,17 @@ class StackitAuthProvider(
             return cached.token
         }
 
-        val (token, expiresAt) = fetchTokenFromStackit()
-        tokenRef.set(TokenRecord(token, expiresAt))
-        return token
+        synchronized(tokenRef) {
+            val current = tokenRef.get()
+            if (current.token != null && now.isBefore(current.expiresAt.minus(TOKEN_EXPIRY_BUFFER))) {
+                return current.token
+            }
+            val (token, expiresAt) = fetchTokenFromStackit()
+            tokenRef.set(TokenRecord(token, expiresAt))
+            return token
+        }
     }
 
-    @Suppress("SwallowedException")
     private fun fetchTokenFromStackit(): Pair<String, Instant> {
         return try {
             val coreConfig: CoreConfiguration = config.toCoreConfiguration()
@@ -63,12 +68,10 @@ class StackitAuthProvider(
             val accessToken = authenticator.accessToken
             val expiresAt = Instant.now().plus(TOKEN_LIFETIME)
             accessToken to expiresAt
-        } catch (e: PubSubAuthError) {
-            throw e
         } catch (e: InvalidKeySpecException) {
-            throw PubSubAuthError.InvalidKey("Invalid private key in service account: ${e.message}", e)
+            throw PubSubError.AuthError.InvalidKey("Invalid private key in service account: ${e.message}", e)
         } catch (e: Exception) {
-            throw PubSubAuthError.TokenAcquisitionFailed("Failed to obtain STACKIT token: ${e.message}", e)
+            throw PubSubError.AuthError.TokenAcquisitionFailed("Failed to obtain STACKIT token: ${e.message}", e)
         }
     }
 }

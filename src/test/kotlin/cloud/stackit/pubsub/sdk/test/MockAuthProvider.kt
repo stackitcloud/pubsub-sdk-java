@@ -1,16 +1,17 @@
 package cloud.stackit.pubsub.sdk.test
 
 import cloud.stackit.pubsub.sdk.auth.AuthProvider
+import java.util.concurrent.atomic.AtomicReference
 
 class MockAuthProvider : AuthProvider {
-    private var _token: String? = null
+    private val tokenRef = AtomicReference<String?>(null)
 
     fun setToken(token: String) {
-        _token = token
+        tokenRef.set(token)
     }
 
     override fun getToken(): String {
-        return _token ?: "mock-fake-token-12345"
+        return tokenRef.get() ?: "mock-fake-token-12345"
     }
 
     override fun getAuthHeader(): Map<String, String> {

@@ -8,6 +8,8 @@ import cloud.stackit.pubsub.sdk.config.Region
 import cloud.stackit.pubsub.sdk.publisher.PubSubPublisher
 import cloud.stackit.pubsub.sdk.retry.RetryConfig
 import cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber
+import okhttp3.OkHttpClient
+import java.time.Duration
 import java.util.UUID
 
 /**
@@ -21,7 +23,7 @@ import java.util.UUID
  * @param region API region (default: EU01).
  * @param environment STACKIT environment (default: PROD).
  */
-data class PubSubClient(
+class PubSubClient(
     val topicId: UUID,
     val authConfig: AuthConfig? = null,
     val region: Region = Region.EU01,
@@ -30,6 +32,12 @@ data class PubSubClient(
     val authProvider: StackitAuthProvider = StackitAuthProvider(authConfig ?: AuthConfig())
 
     val baseDataplaneUrl: String = "https://$topicId.pubsub.${environment.hostnamePrefix}${region.value}.onstackit.cloud"
+
+    private val sharedHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(Duration.ofSeconds(10))
+        .readTimeout(Duration.ofSeconds(30))
+        .writeTimeout(Duration.ofSeconds(10))
+        .build()
 
     /**
      * Create a Publisher for this topic.
@@ -42,7 +50,8 @@ data class PubSubClient(
             topicId = topicId,
             baseDataplaneUrl = baseDataplaneUrl,
             authProvider = authProvider,
-            retryConfig = retryConfig ?: RetryConfig.Default
+            retryConfig = retryConfig ?: RetryConfig.Default,
+            httpClient = sharedHttpClient
         )
     }
 
@@ -67,7 +76,8 @@ data class PubSubClient(
             authProvider = authProvider,
             retryConfig = retryConfig ?: RetryConfig.Default,
             maxMessages = maxMessages,
-            longPullDurationMs = longPullDurationMs
+            longPullDurationMs = longPullDurationMs,
+            httpClient = sharedHttpClient
         )
     }
 }

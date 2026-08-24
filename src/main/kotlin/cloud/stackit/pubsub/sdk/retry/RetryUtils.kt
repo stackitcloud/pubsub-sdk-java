@@ -1,6 +1,6 @@
 package cloud.stackit.pubsub.sdk.retry
 
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import java.util.concurrent.ThreadLocalRandom
 
 /**
@@ -25,7 +25,7 @@ fun isRetryableStatusCode(code: Int, config: RetryConfig = RetryConfig.Default):
  */
 fun isRetryableException(exc: Throwable, config: RetryConfig = RetryConfig.Default): Boolean {
     return when (exc) {
-        is PubSubAuthError -> false
+        is PubSubError -> false
         is java.net.ConnectException -> true
         is java.net.SocketTimeoutException -> true
         is java.io.IOException -> true
@@ -47,9 +47,8 @@ fun getRetryDelay(config: RetryConfig, attempt: Int): Long {
 }
 
 private fun pow(base: Double, exp: Int): Double {
-    var result = 1.0
-    for (i in 0 until exp) result *= base
-    return result
+    if (exp <= 0) return 1.0
+    return Math.pow(base, exp.toDouble())
 }
 
 /**
@@ -83,11 +82,13 @@ inline fun <reified T : Throwable> retry(
         } catch (e: Throwable) {
             lastException = e
             if (!isRetryable(e) || attempt >= config.maxRetries) {
-                throw lastException as T
+                @Suppress("UNCHECKED_CAST")
+                throw lastException as? T ?: throw lastException
             }
             val delay = getRetryDelay(config, attempt)
             Thread.sleep(delay)
         }
     }
-    throw lastException as T
+    @Suppress("UNCHECKED_CAST")
+    throw lastException as? T ?: throw lastException!!
 }

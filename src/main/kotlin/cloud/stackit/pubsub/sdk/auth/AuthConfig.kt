@@ -9,6 +9,12 @@ data class AuthConfig(
     val tokenEndpoint: String? = "https://authorization.stackit.cloud/auth/token",
     val scope: String = "dataplane"
 ) {
+    init {
+        tokenEndpoint?.let { url ->
+            require(url.startsWith("https://")) { "tokenEndpoint must use HTTPS: $url" }
+        }
+    }
+
     fun toCoreConfiguration(): CoreConfiguration {
         val config = CoreConfiguration()
         serviceAccountKey?.let { config.serviceAccountKey(it) }

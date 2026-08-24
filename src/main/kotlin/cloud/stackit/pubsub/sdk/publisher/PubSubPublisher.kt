@@ -6,7 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import cloud.stackit.pubsub.sdk.auth.AuthProvider
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.models.PublishMessage
 import cloud.stackit.pubsub.sdk.models.PublishMessagesRequest
 import cloud.stackit.pubsub.sdk.models.PublishMessagesResponse
@@ -17,6 +17,7 @@ import cloud.stackit.pubsub.sdk.retry.getRetryDelay
 import java.io.IOException
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Publisher interface for sending messages to a STACKIT PubSub topic.
@@ -25,6 +26,7 @@ import java.util.UUID
  * @param baseDataplaneUrl The dataplane base URL.
  * @param authProvider Provider for STACKIT authorization tokens.
  * @param retryConfig Configuration for retry behavior.
+ * @param httpClient Shared HTTP client for connection reuse.
  * @param messagesSent Total count of messages sent.
  * @param publishCalls Total count of publish calls made.
  * @param purgeCalls Total count of purge calls made.
@@ -33,10 +35,11 @@ class PubSubPublisher(
     private val topicId: UUID,
     private val baseDataplaneUrl: String,
     private val authProvider: AuthProvider,
-    private val retryConfig: RetryConfig = RetryConfig.Default
+    private val retryConfig: RetryConfig = RetryConfig.Default,
+    httpClient: OkHttpClient? = null
 ) {
     private val gson = Gson()
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+    private val httpClient: OkHttpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(Duration.ofSeconds(10))
         .readTimeout(Duration.ofSeconds(30))
         .writeTimeout(Duration.ofSeconds(10))
@@ -44,14 +47,11 @@ class PubSubPublisher(
 
     private val jsonMediaType = "application/json".toMediaType()
 
-    var messagesSent: Int = 0
-        private set
+    val messagesSent: AtomicInteger = AtomicInteger(0)
 
-    var publishCalls: Int = 0
-        private set
+    val publishCalls: AtomicInteger = AtomicInteger(0)
 
-    var purgeCalls: Int = 0
-        private set
+    val purgeCalls: AtomicInteger = AtomicInteger(0)
 
     /**
      * Publish messages to the topic.
@@ -63,8 +63,8 @@ class PubSubPublisher(
         require(messages.isNotEmpty()) { "Cannot publish an empty list of messages" }
         require(messages.size <= 100) { "Maximum 100 messages per publish request" }
 
-        publishCalls++
-        messagesSent += messages.size
+        publishCalls.incrementAndGet()
+        messagesSent.addAndGet(messages.size)
 
         val request = Request.Builder()
             .url("$baseDataplaneUrl/v1alpha/publish")
@@ -84,7 +84,6 @@ class PubSubPublisher(
         }
 
         handleErrorResponse(statusCode, body)
-        throw PubSubAuthError.TokenAcquisitionFailed("Unexpected status: $statusCode")
     }
 
     /**
@@ -108,7 +107,7 @@ class PubSubPublisher(
      * Purge all messages from the topic.
      */
     fun purgeTopic() {
-        purgeCalls++
+        purgeCalls.incrementAndGet()
 
         val request = Request.Builder()
             .url("$baseDataplaneUrl/v1alpha/purge")
@@ -121,7 +120,7 @@ class PubSubPublisher(
         val (statusCode, _) = executeWithRetry(request)
 
         if (statusCode != 204) {
-            throw PubSubAuthError.TokenAcquisitionFailed("Purge failed with status $statusCode")
+            handleErrorResponse(statusCode, "")
         }
     }
 
@@ -140,7 +139,7 @@ class PubSubPublisher(
 
                 if (isRetryableStatusCode(statusCode)) {
                     if (attempt >= retryConfig.maxRetries) {
-                        throw PubSubAuthError.TokenAcquisitionFailed("Server error $statusCode after $attempt retries: $body")
+                        throw PubSubError.HttpError.ServerError("Server error $statusCode after $attempt retries: $body")
                     }
                     val delay = getRetryDelay(retryConfig, attempt)
                     Thread.sleep(delay)
@@ -151,25 +150,27 @@ class PubSubPublisher(
             } catch (e: IOException) {
                 lastException = e
                 if (!isRetryableException(e) || attempt >= retryConfig.maxRetries) {
-                    throw PubSubAuthError.TokenAcquisitionFailed("Request failed: ${e.message}", e)
+                    throw PubSubError.RequestFailed("Request failed: ${e.message}", e)
                 }
                 val delay = getRetryDelay(retryConfig, attempt)
                 Thread.sleep(delay)
             }
         }
 
-        throw PubSubAuthError.TokenAcquisitionFailed("Request failed after retries", lastException)
+        @Suppress("UNCHECKED_CAST")
+        throw (lastException as? Exception) ?: throw lastException!!
     }
 
-    private fun handleErrorResponse(statusCode: Int, body: String) {
-        when (statusCode) {
-            400 -> throw PubSubAuthError.TokenAcquisitionFailed("Bad request: $body")
-            401 -> throw PubSubAuthError.TokenAcquisitionFailed("Unauthorized: $body")
-            403 -> throw PubSubAuthError.TokenAcquisitionFailed("Forbidden: $body")
-            404 -> throw PubSubAuthError.TokenAcquisitionFailed("Not found: $body")
-            413 -> throw PubSubAuthError.TokenAcquisitionFailed("Request body too large: $body")
-            in 500..599 -> throw PubSubAuthError.TokenAcquisitionFailed("Server error $statusCode: $body")
-            else -> throw PubSubAuthError.TokenAcquisitionFailed("Unexpected error $statusCode: $body")
+    private fun handleErrorResponse(statusCode: Int, body: String): Nothing {
+        val error = when (statusCode) {
+            400 -> PubSubError.HttpError.BadRequest("Bad request: $body")
+            401 -> PubSubError.HttpError.Unauthorized("Unauthorized: $body")
+            403 -> PubSubError.HttpError.Forbidden("Forbidden: $body")
+            404 -> PubSubError.HttpError.NotFound("Not found: $body")
+            413 -> PubSubError.HttpError.PayloadTooLarge("Request body too large: $body")
+            in 500..599 -> PubSubError.HttpError.ServerError("Server error $statusCode: $body")
+            else -> PubSubError.HttpError.Unexpected("Unexpected error $statusCode: $body")
         }
+        throw error
     }
 }

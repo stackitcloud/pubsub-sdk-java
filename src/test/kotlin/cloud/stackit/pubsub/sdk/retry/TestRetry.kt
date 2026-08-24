@@ -1,6 +1,6 @@
 package cloud.stackit.pubsub.sdk.retry
 
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import org.junit.jupiter.api.Test
 import java.io.IOException
 
@@ -97,8 +97,8 @@ class TestRetryableException {
     }
 
     @Test
-    fun `PubSubAuthError is not retryable`() {
-        assert(!isRetryableException(PubSubAuthError.TokenAcquisitionFailed("token error")))
+    fun `PubSubError is not retryable`() {
+        assert(!isRetryableException(PubSubError.AuthError.TokenAcquisitionFailed("token error")))
     }
 
     @Test
@@ -142,8 +142,8 @@ class TestCalculateDelay {
     }
 
     @Test
-    fun `delays increase monotonically`() {
-        val config = RetryConfig(baseDelay = 500L, multiplier = 2.0)
+    fun `delays increase monotonically without jitter`() {
+        val config = RetryConfig(baseDelay = 500L, multiplier = 2.0, jitterFactor = 0.0)
         val delays = (0..5).map { getRetryDelay(config, it) }
         for (i in 1 until delays.size) {
             assert(delays[i] > delays[i - 1]) { "Delay should increase: ${delays[i - 1]} -> ${delays[i]}" }
@@ -183,7 +183,7 @@ class TestRetryFunction {
         val result = runCatching {
             retry<IOException> {
                 attempts++
-                throw PubSubAuthError.TokenAcquisitionFailed("validation failed")
+                throw PubSubError.AuthError.TokenAcquisitionFailed("validation failed")
             }
         }
         assert(result.isFailure)

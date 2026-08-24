@@ -41,7 +41,6 @@ class TestPublisherConcurrency {
         val latch = CountDownLatch(threadCount)
         val successCount = AtomicInteger(0)
 
-        // Pre-enqueue responses for all expected requests
         repeat(totalMessages) {
             server.enqueue(
                 MockResponse()
@@ -71,7 +70,6 @@ class TestPublisherConcurrency {
                 }
             }
 
-            // Wait for all threads to complete
             val completed = latch.await(30, TimeUnit.SECONDS)
             assertTrue(completed, "All threads should complete within timeout")
 
@@ -88,7 +86,6 @@ class TestPublisherConcurrency {
         val latch = CountDownLatch(threadCount)
         val successCount = AtomicInteger(0)
 
-        // Pre-enqueue responses
         repeat(threadCount) {
             server.enqueue(
                 MockResponse()
@@ -118,12 +115,11 @@ class TestPublisherConcurrency {
         val completed = latch.await(30, TimeUnit.SECONDS)
         assertTrue(completed, "All threads should complete within timeout")
 
-        // Wait for all threads to finish
         threads.forEach { it.join() }
 
         assertEquals(threadCount, successCount.get())
-        assertEquals(threadCount, publisher.publishCalls)
-        assertEquals(threadCount * 1, publisher.messagesSent)
+        assertEquals(threadCount, publisher.publishCalls.get())
+        assertEquals(threadCount, publisher.messagesSent.get())
     }
 
     @Test
@@ -132,7 +128,6 @@ class TestPublisherConcurrency {
         val latch = CountDownLatch(threadCount)
         val successCount = AtomicInteger(0)
 
-        // Pre-enqueue 204 responses
         repeat(threadCount) {
             server.enqueue(MockResponse().setResponseCode(204).setBody(""))
         }
@@ -140,7 +135,7 @@ class TestPublisherConcurrency {
         val subscriber = cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber(
             subscriptionId = UUID.randomUUID(),
             baseDataplaneUrl = baseUrl,
-            authProvider = authProvider
+            authProvider = MockAuthProvider()
         )
 
         val threads = List(threadCount) { id ->
@@ -196,7 +191,6 @@ class TestClientConcurrency {
                 )
             }
 
-            // Create publishers directly with mock auth provider
             val publishers = List(5) {
                 PubSubPublisher(
                     topicId = topicId,
@@ -206,7 +200,7 @@ class TestClientConcurrency {
             }
             publishers.forEach { it.publish(listOf(PublishMessage("dGVzdA=="))) }
 
-            assertEquals(5, publishers.sumOf { it.publishCalls })
+            assertEquals(5, publishers.sumOf { it.publishCalls.get() })
         } finally {
             server.shutdown()
         }
@@ -219,14 +213,12 @@ class TestClientConcurrency {
             val subscriptionId = UUID.randomUUID()
             val authProvider = MockAuthProvider()
 
-            // Enqueue responses for publish
             server.enqueue(
                 MockResponse()
                     .setResponseCode(200)
                     .setBody("""{"messageIds":[1]}""")
                     .addHeader("Content-Type", "application/json")
             )
-            // Enqueue response for pull
             server.enqueue(
                 MockResponse()
                     .setResponseCode(200)
@@ -248,7 +240,7 @@ class TestClientConcurrency {
             )
             subscriber.pull()
 
-            assertEquals(1, publisher.publishCalls)
+            assertEquals(1, publisher.publishCalls.get())
         } finally {
             server.shutdown()
         }

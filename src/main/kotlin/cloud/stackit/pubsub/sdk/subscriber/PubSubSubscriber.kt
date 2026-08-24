@@ -1,6 +1,5 @@
 package cloud.stackit.pubsub.sdk.subscriber
 
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonSerializer
@@ -14,7 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import cloud.stackit.pubsub.sdk.auth.AuthProvider
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.models.AckMessagesRequest
 import cloud.stackit.pubsub.sdk.models.Message
 import cloud.stackit.pubsub.sdk.models.MessagesResponse
@@ -36,6 +35,7 @@ import java.util.UUID
  * @param retryConfig Configuration for retry behavior.
  * @param maxMessages Maximum messages to pull per request.
  * @param longPullDurationMs Long pull timeout in milliseconds.
+ * @param httpClient Shared HTTP client for connection reuse.
  */
 class PubSubSubscriber(
     private val subscriptionId: UUID,
@@ -43,7 +43,8 @@ class PubSubSubscriber(
     private val authProvider: AuthProvider,
     private val retryConfig: RetryConfig = RetryConfig.Default,
     private val maxMessages: Int = 16,
-    private val longPullDurationMs: Int = 5000
+    private val longPullDurationMs: Int = 5000,
+    httpClient: OkHttpClient? = null
 ) {
     private val gson = GsonBuilder()
         .registerTypeAdapter(java.time.Instant::class.java, object : JsonDeserializer<java.time.Instant> {
@@ -58,7 +59,7 @@ class PubSubSubscriber(
         })
         .create()
     private val jsonMediaType = "application/json".toMediaType()
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+    private val httpClient: OkHttpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(Duration.ofSeconds(10))
         .readTimeout(Duration.ofSeconds(30))
         .writeTimeout(Duration.ofSeconds(10))
@@ -100,7 +101,6 @@ class PubSubSubscriber(
         }
 
         handleErrorResponse(statusCode, body)
-        return emptyList()
     }
 
     /**
@@ -164,7 +164,7 @@ class PubSubSubscriber(
 
                 if (isRetryableStatusCode(statusCode)) {
                     if (attempt >= retryConfig.maxRetries) {
-                        throw PubSubAuthError.TokenAcquisitionFailed("Server error $statusCode after $attempt retries: $body")
+                        throw PubSubError.HttpError.ServerError("Server error $statusCode after $attempt retries: $body")
                     }
                     val delay = getRetryDelay(retryConfig, attempt)
                     Thread.sleep(delay)
@@ -175,25 +175,27 @@ class PubSubSubscriber(
             } catch (e: IOException) {
                 lastException = e
                 if (!isRetryableException(e) || attempt >= retryConfig.maxRetries) {
-                    throw PubSubAuthError.TokenAcquisitionFailed("Request failed: ${e.message}", e)
+                    throw PubSubError.RequestFailed("Request failed: ${e.message}", e)
                 }
                 val delay = getRetryDelay(retryConfig, attempt)
                 Thread.sleep(delay)
             }
         }
 
-        throw PubSubAuthError.TokenAcquisitionFailed("Request failed after retries", lastException)
+        @Suppress("UNCHECKED_CAST")
+        throw (lastException as? Exception) ?: throw lastException!!
     }
 
-    private fun handleErrorResponse(statusCode: Int, body: String) {
-        when (statusCode) {
-            400 -> throw PubSubAuthError.TokenAcquisitionFailed("Bad request: $body")
-            401 -> throw PubSubAuthError.TokenAcquisitionFailed("Unauthorized: $body")
-            403 -> throw PubSubAuthError.TokenAcquisitionFailed("Forbidden: $body")
-            404 -> throw PubSubAuthError.TokenAcquisitionFailed("Not found: $body")
-            413 -> throw PubSubAuthError.TokenAcquisitionFailed("Request body too large: $body")
-            in 500..599 -> throw PubSubAuthError.TokenAcquisitionFailed("Server error $statusCode: $body")
-            else -> throw PubSubAuthError.TokenAcquisitionFailed("Unexpected error $statusCode: $body")
+    private fun handleErrorResponse(statusCode: Int, body: String): Nothing {
+        val error = when (statusCode) {
+            400 -> PubSubError.HttpError.BadRequest("Bad request: $body")
+            401 -> PubSubError.HttpError.Unauthorized("Unauthorized: $body")
+            403 -> PubSubError.HttpError.Forbidden("Forbidden: $body")
+            404 -> PubSubError.HttpError.NotFound("Not found: $body")
+            413 -> PubSubError.HttpError.PayloadTooLarge("Request body too large: $body")
+            in 500..599 -> PubSubError.HttpError.ServerError("Server error $statusCode: $body")
+            else -> PubSubError.HttpError.Unexpected("Unexpected error $statusCode: $body")
         }
+        throw error
     }
 }
