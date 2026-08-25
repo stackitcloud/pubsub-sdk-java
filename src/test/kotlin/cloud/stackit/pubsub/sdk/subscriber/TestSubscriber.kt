@@ -149,6 +149,18 @@ class TestSubscriberPull {
     }
 
     @Test
+    fun `pull invalid longPullDurationMs below minimum in subscriber init throws`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            PubSubSubscriber(
+                subscriptionId = UUID.randomUUID(),
+                baseDataplaneUrl = "https://test.pubsub.eu01.onstackit.cloud",
+                authProvider = MockAuthProvider(),
+                longPullDurationMs = 50
+            )
+        }
+    }
+
+    @Test
     fun `pull 503 triggers retry then succeeds`() {
         val errorResponse = MockResponse()
             .setResponseCode(503)
@@ -508,5 +520,31 @@ class TestSubscriberErrorHandling {
             subscriber.pull()
         }
         assertTrue(thrown.message!!.contains("Request failed"))
+    }
+
+    @Test
+    fun `pull 429 throws unexpected error`() {
+        val response = MockResponse()
+            .setResponseCode(429)
+            .setBody("Too Many Requests")
+
+        val subscriber = createSubscriber(response)
+        val thrown = assertThrows(PubSubError.HttpError.Unexpected::class.java) {
+            subscriber.pull()
+        }
+        assertTrue(thrown.message!!.contains("429"))
+    }
+
+    @Test
+    fun `ack 429 throws unexpected error`() {
+        val response = MockResponse()
+            .setResponseCode(429)
+            .setBody("Too Many Requests")
+
+        val subscriber = createSubscriber(response)
+        val thrown = assertThrows(PubSubError.HttpError.Unexpected::class.java) {
+            subscriber.ack(listOf("ack-1"))
+        }
+        assertTrue(thrown.message!!.contains("429"))
     }
 }

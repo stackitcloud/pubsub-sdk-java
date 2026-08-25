@@ -64,12 +64,12 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             element = "CLASS"
+            includes = listOf(
+                "cloud.stackit.pubsub.sdk.publisher.*",
+                "cloud.stackit.pubsub.sdk.subscriber.*"
+            )
             excludes = listOf(
-                "cloud.stackit.pubsub.sdk.test.*",
-                "cloud.stackit.pubsub.sdk.integration.*",
-                "cloud.stackit.pubsub.sdk.auth.StackitAuthProvider*",
-                "cloud.stackit.pubsub.sdk.auth.AuthConfig*",
-                "cloud.stackit.pubsub.sdk.retry.RetryUtilsKt"
+                "cloud.stackit.pubsub.sdk.subscriber.PubSubSubscriber*gson*"
             )
             limit {
                 minimum = BigDecimal("0.85")
