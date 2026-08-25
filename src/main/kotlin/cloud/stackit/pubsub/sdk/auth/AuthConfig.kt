@@ -6,8 +6,7 @@ data class AuthConfig(
     val serviceAccountKey: String? = null,
     val serviceAccountKeyPath: String? = null,
     val privateKeyPath: String? = null,
-    val tokenEndpoint: String? = "https://authorization.stackit.cloud/auth/token",
-    val scope: String = "dataplane"
+    val tokenEndpoint: String? = "https://authorization.stackit.cloud/auth/token"
 ) {
     init {
         tokenEndpoint?.let { url ->

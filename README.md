@@ -37,7 +37,27 @@ val authConfig = AuthConfig(
 )
 ```
 
-`AuthConfig` fields: `serviceAccountKey` (inline JSON string), `serviceAccountKeyPath` (file path), `privateKeyPath`, `tokenEndpoint` (default `https://authorization.stackit.cloud/auth/token`), `scope` (default `"dataplane"`).
+`AuthConfig` fields: `serviceAccountKey` (inline JSON string), `serviceAccountKeyPath` (file path), `privateKeyPath`, `tokenEndpoint` (default `https://authorization.stackit.cloud/auth/token`).
+
+## Environments
+
+The SDK supports three environments via the `Environment` enum:
+
+| Environment | Dataplane URL pattern |
+|-------------|----------------------|
+| `PROD` (default) | `https://{topic_id}.pubsub.{region}.onstackit.cloud` |
+| `QA` | `https://{topic_id}.pubsub.{region}.qa.onstackit.cloud` |
+| `DEV` | `https://{topic_id}.pubsub.{region}.dev.onstackit.cloud` |
+
+```kotlin
+import cloud.stackit.pubsub.sdk.config.Environment
+
+val client = PubSubClient(
+    topicId = UUID.fromString("your-topic-uuid"),
+    authConfig = authConfig,
+    environment = Environment.DEV  // use DEV environment
+)
+```
 
 ## Quickstart
 
@@ -70,7 +90,7 @@ fun main() {
 }
 ```
 
-`client.baseDataplaneUrl` defaults to `https://{topic_id}.pubsub.eu01.onstackit.cloud`; pass `region` or `environment` to `PubSubClient(...)` to override (e.g. `region = Region.US01`).
+`client.baseDataplaneUrl` defaults to `https://{topic_id}.pubsub.eu01.onstackit.cloud`. Override with `region` or `environment` (e.g. `environment = Environment.DEV` for `https://{topic_id}.pubsub.eu01.dev.onstackit.cloud`).
 
 `PublishMessage` takes a base64-encoded payload string. `Message.payload` (ByteArray) / `Message.text` (String) base64-decode it back.
 
@@ -99,3 +119,13 @@ val retryConfig = RetryConfig(maxRetries = 3, baseDelay = 500L, maxDelay = 30000
 ```
 
 400/401/403/404/413 are never retried.
+
+## Examples
+
+Standalone example programs demonstrating common patterns are in [`examples/`](examples/):
+
+- `BasicExample.java` — publish/subscribe workflow
+- `ErrorHandlingExample.java` — error handling patterns
+- `BatchExample.java` — batch publishing
+- `PurgeExample.java` — topic purging
+- `RetryExample.java` — custom retry configuration

@@ -14,7 +14,6 @@ class TestAuthConfig {
         assertNull(config.serviceAccountKey)
         assertNull(config.serviceAccountKeyPath)
         assertEquals("https://authorization.stackit.cloud/auth/token", config.tokenEndpoint)
-        assertEquals("dataplane", config.scope)
     }
 
     @Test
