@@ -36,11 +36,12 @@ class IntegrationTest {
     private val httpClient = OkHttpClient.Builder().build()
     private lateinit var authProvider: StackitAuthProvider
     private lateinit var projectNumber: String
-    private lateinit var topicId: UUID
-    private lateinit var subscriptionId: UUID
+    private lateinit var topicId: String
+    private lateinit var subscriptionId: String
     private lateinit var baseControlPlaneUrl: String
     private lateinit var baseDataplaneUrl: String
     private lateinit var authConfig: AuthConfig
+    private lateinit var saEmail: String
 
     @BeforeAll
     @Throws(Exception::class)
@@ -55,6 +56,12 @@ class IntegrationTest {
             File("sa-key.json").readText()
         }
 
+        saEmail = gson.fromJson(saKey, JsonObject::class.java)
+            .get("credentials")
+            .asJsonObject
+            .get("iss")
+            .asString
+
         val saKeyFile = File.createTempFile("sa-key-", ".json")
         saKeyFile.writeText(saKey)
         saKeyFile.deleteOnExit()
@@ -64,19 +71,11 @@ class IntegrationTest {
         authProvider = StackitAuthProvider(authConfig)
         projectNumber = project
         baseControlPlaneUrl = "https://pubsub-dev.api.${Region.EU01.value}.qa.stackit.cloud"
-        topicId = UUID.randomUUID()
-        subscriptionId = UUID.randomUUID()
-
-        // Get dataplane URL from env or construct from topic
-        val customBaseDataplaneUrl = System.getenv("BASE_URL")
-        if (customBaseDataplaneUrl != null && customBaseDataplaneUrl.isNotBlank()) {
-            baseDataplaneUrl = customBaseDataplaneUrl
-        } else {
-            baseDataplaneUrl = "https://$topicId.pubsub.${Region.EU01.value}.dev.onstackit.cloud"
-        }
 
         createTopic()
         createSubscription()
+
+        baseDataplaneUrl = System.getenv("BASE_URL") ?: "https://$topicId.pubsub.${Region.EU01.value}.dev.onstackit.cloud"
     }
 
     @AfterAll
@@ -93,9 +92,10 @@ class IntegrationTest {
     }
 
     private fun createTopic() {
+        val tempId = UUID.randomUUID().toString().take(24)
         val requestBody = """
             {
-                "displayName": "sdk-test-${topicId}",
+                "displayName": "sdk-test-$tempId",
                 "description": "Created by SDK integration tests"
             }
         """.trimIndent()
@@ -111,27 +111,31 @@ class IntegrationTest {
             .post(body)
             .build()
 
-        try {
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            if (!response.isSuccessful) {
-                if (response.code == 409) {
-                    println("Topic already exists, skipping creation")
-                    return
-                }
-                throw IOException("Failed to create topic: $responseBody")
-            }
-            waitForOperation(responseBody)
-            println("Topic created successfully: $topicId")
-        } catch (e: IOException) {
-            println("Warning: Failed to create topic (may already exist): ${e.message}")
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (response.code == 409) {
+            println("Topic already exists, skipping creation")
+            return
         }
+
+        if (!response.isSuccessful) {
+            throw IOException("Failed to create topic: $responseBody")
+        }
+
+        val topic = gson.fromJson(responseBody, JsonObject::class.java)
+        topicId = topic.get("id").asString
+        println("Topic created: $topicId")
+
+        waitForResourceActive("topics", topicId)
+        grantPublisherAccess(topicId)
     }
 
     private fun createSubscription() {
+        val tempId = UUID.randomUUID().toString().take(24)
         val requestBody = """
             {
-                "displayName": "sdk-sub-${subscriptionId}",
+                "displayName": "sdk-sub-$tempId",
                 "description": "Created by SDK integration tests"
             }
         """.trimIndent()
@@ -147,21 +151,138 @@ class IntegrationTest {
             .post(body)
             .build()
 
-        try {
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            if (!response.isSuccessful) {
-                if (response.code == 409) {
-                    println("Subscription already exists, skipping creation")
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (response.code == 409) {
+            println("Subscription already exists, skipping creation")
+            return
+        }
+
+        if (!response.isSuccessful) {
+            throw IOException("Failed to create subscription: $responseBody")
+        }
+
+        val sub = gson.fromJson(responseBody, JsonObject::class.java)
+        subscriptionId = sub.get("id").asString
+        println("Subscription created: $subscriptionId")
+
+        waitForResourceActive("subscriptions", subscriptionId, topicId)
+        grantSubscriberAccess(subscriptionId)
+    }
+
+    private fun grantPublisherAccess(topicId: String) {
+        val requestBody = """
+            {
+                "emailAddress": "$saEmail"
+            }
+        """.trimIndent()
+
+        val mediaType = "application/json".toMediaType()
+        val body = requestBody.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$topicId/publishers")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "application/json")
+            .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
+            .patch(body)
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (response.isSuccessful) {
+            println("Granted publisher access for $saEmail")
+        } else {
+            println("Warning: Failed to grant publisher access: $responseBody")
+        }
+    }
+
+    private fun grantSubscriberAccess(subscriptionId: String) {
+        val requestBody = """
+            {
+                "emailAddress": "$saEmail"
+            }
+        """.trimIndent()
+
+        val mediaType = "application/json".toMediaType()
+        val body = requestBody.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url("$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$topicId/subscriptions/$subscriptionId/subscribers")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "application/json")
+            .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
+            .patch(body)
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (response.isSuccessful) {
+            println("Granted subscriber access for $saEmail")
+        } else {
+            println("Warning: Failed to grant subscriber access: $responseBody")
+        }
+    }
+
+    private fun waitForResourceActive(
+        resourceType: String,
+        resourceId: String,
+        topicIdOverride: String? = null
+    ) {
+        val start = System.currentTimeMillis()
+        val timeoutMs = 600_000L // 10 minutes
+        val pollIntervalMs = 10_000L // 10 seconds
+
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            try {
+                val resourceTopicId = topicIdOverride ?: resourceId
+                val url = if (resourceType == "subscriptions") {
+                    "$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/topics/$resourceTopicId/subscriptions/$resourceId"
+                } else {
+                    "$baseControlPlaneUrl/v1beta/projects/$projectNumber/regions/${Region.EU01.value}/$resourceType/$resourceId"
+                }
+
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
+                    .get()
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    println("$resourceType $resourceId not reachable yet (${response.code}), retrying...")
+                    Thread.sleep(pollIntervalMs)
+                    continue
+                }
+
+                val body = response.body?.string() ?: ""
+                val resource = gson.fromJson(body, JsonObject::class.java)
+                val state = resource.get("state")?.asString
+
+                if (state == "active") {
+                    println("$resourceType $resourceId is active")
                     return
                 }
-                throw IOException("Failed to create subscription: $responseBody")
+                if (state == "deleting") {
+                    throw RuntimeException("$resourceType entered deleting state: $resourceId")
+                }
+
+                if (System.currentTimeMillis() - start > 0 && (System.currentTimeMillis() - start) % 30000 < pollIntervalMs) {
+                    println("Waiting for $resourceType $resourceId to become active (state: $state)")
+                }
+
+                Thread.sleep(pollIntervalMs)
+            } catch (e: IOException) {
+                println("$resourceType $resourceId not reachable yet: ${e.message}, retrying...")
+                Thread.sleep(pollIntervalMs)
             }
-            waitForOperation(responseBody)
-            println("Subscription created successfully: $subscriptionId")
-        } catch (e: IOException) {
-            println("Warning: Failed to create subscription (may already exist): ${e.message}")
         }
+
+        throw IOException("$resourceType $resourceId did not become active within 10 minutes")
     }
 
     private fun deleteTopic() {
@@ -174,13 +295,9 @@ class IntegrationTest {
 
         try {
             val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            if (!response.isSuccessful) {
-                println("Warning: Failed to delete topic: $responseBody")
-                return
+            if (!response.isSuccessful && response.code != 404) {
+                println("Warning: Failed to delete topic: ${response.body?.string()}")
             }
-            waitForOperation(responseBody)
-            println("Topic deleted successfully")
         } catch (e: IOException) {
             println("Warning: Failed to delete topic: ${e.message}")
         }
@@ -196,20 +313,15 @@ class IntegrationTest {
 
         try {
             val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            if (!response.isSuccessful) {
-                println("Warning: Failed to delete subscription: $responseBody")
-                return
+            if (!response.isSuccessful && response.code != 404) {
+                println("Warning: Failed to delete subscription: ${response.body?.string()}")
             }
-            waitForOperation(responseBody)
-            println("Subscription deleted successfully")
         } catch (e: IOException) {
             println("Warning: Failed to delete subscription: ${e.message}")
         }
     }
 
     private fun purgeTopic() {
-        baseDataplaneUrl = "https://$topicId.pubsub.${Region.EU01.value}.dev.onstackit.cloud"
         val mediaType = "application/json".toMediaType()
 
         val request = Request.Builder()
@@ -230,46 +342,12 @@ class IntegrationTest {
         }
     }
 
-    private fun waitForOperation(operationResponse: String) {
-        val operation = gson.fromJson(operationResponse, JsonObject::class.java)
-        val name = operation.get("name").asString
-        val done = operation.get("done")?.asBoolean ?: false
-
-        if (done) return
-
-        var attempts = 0
-        val maxAttempts = 30
-        while (attempts < maxAttempts) {
-            Thread.sleep(1000)
-            attempts++
-
-            val getRequest = Request.Builder()
-                .url("$baseControlPlaneUrl/v1alpha/operations/$name")
-                .addHeader("Accept", "application/json")
-                .addHeader("Authorization", "Bearer ${authProvider.getToken()}")
-                .build()
-
-            val getResponse = httpClient.newCall(getRequest).execute()
-            val responseText = getResponse.body?.string() ?: ""
-            val op = gson.fromJson(responseText, JsonObject::class.java)
-
-            if (op.get("done")?.asBoolean == true) {
-                if (op.has("error")) {
-                    val error = op.get("error")
-                    throw IOException("Operation failed: ${error.asString}")
-                }
-                return
-            }
-        }
-        throw IOException("Operation timed out after ${maxAttempts}s")
-    }
-
     @Test
     @Order(1)
     @Throws(Exception::class)
     fun `full pubsub flow - publish and subscribe`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
@@ -277,7 +355,7 @@ class IntegrationTest {
 
         val publisher = client.getPublisher(RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000))
         val subscriber = client.getSubscriber(
-            subscriptionId = subscriptionId,
+            subscriptionId = UUID.fromString(subscriptionId),
             retryConfig = RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000),
             maxMessages = 10,
             longPullDurationMs = 1000
@@ -291,8 +369,8 @@ class IntegrationTest {
 
         val publishResponse = publisher.publish(testMessages)
         assertEquals(3, publishResponse.messageIds.size)
-        assertEquals(3, publisher.messagesSent)
-        assertEquals(1, publisher.publishCalls)
+        assertEquals(3, publisher.messagesSent.get())
+        assertEquals(1, publisher.publishCalls.get())
 
         Thread.sleep(2000)
 
@@ -323,7 +401,7 @@ class IntegrationTest {
     @Throws(Exception::class)
     fun `publish batch and nack messages`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
@@ -331,7 +409,7 @@ class IntegrationTest {
 
         val publisher = client.getPublisher(RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000))
         val subscriber = client.getSubscriber(
-            subscriptionId = subscriptionId,
+            subscriptionId = UUID.fromString(subscriptionId),
             retryConfig = RetryConfig(maxRetries = 2, baseDelay = 100, maxDelay = 2000),
             maxMessages = 10,
             longPullDurationMs = 1000
@@ -345,7 +423,7 @@ class IntegrationTest {
         assertEquals(2, batchResults.size)
         val totalIds = batchResults.sumOf { it.messageIds.size }
         assertEquals(20, totalIds)
-        assertEquals(20, publisher.messagesSent)
+        assertEquals(20, publisher.messagesSent.get())
 
         Thread.sleep(2000)
 
@@ -376,18 +454,18 @@ class IntegrationTest {
     @Throws(Exception::class)
     fun `client factory methods share auth provider`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
         )
 
         val publisher = client.getPublisher()
-        val subscriber = client.getSubscriber(subscriptionId)
+        val subscriber = client.getSubscriber(UUID.fromString(subscriptionId))
 
         assertNotNull(publisher)
         assertNotNull(subscriber)
-        assert(client.baseDataplaneUrl.contains(topicId.toString()))
+        assert(client.baseDataplaneUrl.contains(topicId))
     }
 
     @Test
@@ -395,7 +473,7 @@ class IntegrationTest {
     @Throws(Exception::class)
     fun `purge topic removes all messages`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
@@ -403,12 +481,12 @@ class IntegrationTest {
 
         val publisher = client.getPublisher()
         publisher.purgeTopic()
-        assertEquals(1, publisher.purgeCalls)
+        assertEquals(1, publisher.purgeCalls.get())
 
         Thread.sleep(1000)
 
         val subscriber = client.getSubscriber(
-            subscriptionId = subscriptionId,
+            subscriptionId = UUID.fromString(subscriptionId),
             maxMessages = 10,
             longPullDurationMs = 500
         )
@@ -422,7 +500,7 @@ class IntegrationTest {
     @Throws(Exception::class)
     fun `dataplane URL construction is correct`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
@@ -437,7 +515,7 @@ class IntegrationTest {
     @Throws(Exception::class)
     fun `message text and payload properties work correctly`() {
         val client = PubSubClient(
-            topicId = topicId,
+            topicId = UUID.fromString(topicId),
             authConfig = authConfig,
             region = Region.EU01,
             environment = Environment.DEV
