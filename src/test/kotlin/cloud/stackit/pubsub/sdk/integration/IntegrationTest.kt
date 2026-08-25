@@ -209,7 +209,7 @@ class IntegrationTest {
     }
 
     private fun purgeTopic() {
-        baseDataplaneUrl = "https://$topicId.pubsub.${Region.EU01.value}.onstackit.cloud"
+        baseDataplaneUrl = "https://$topicId.pubsub.${Region.EU01.value}.dev.onstackit.cloud"
         val mediaType = "application/json".toMediaType()
 
         val request = Request.Builder()
@@ -428,7 +428,7 @@ class IntegrationTest {
             environment = Environment.DEV
         )
 
-        val expectedUrl = "https://$topicId.pubsub.eu01.onstackit.cloud"
+        val expectedUrl = "https://$topicId.pubsub.eu01.dev.onstackit.cloud"
         assertEquals(expectedUrl, client.baseDataplaneUrl)
     }
 

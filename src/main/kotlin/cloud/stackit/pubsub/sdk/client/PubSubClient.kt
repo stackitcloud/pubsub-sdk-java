@@ -31,7 +31,7 @@ class PubSubClient(
 ) {
     val authProvider: StackitAuthProvider = StackitAuthProvider(authConfig ?: AuthConfig())
 
-    val baseDataplaneUrl: String = "https://$topicId.pubsub.${environment.hostnamePrefix}${region.value}.onstackit.cloud"
+    val baseDataplaneUrl: String = "https://$topicId.pubsub.${region.value}.${environment.hostnamePrefix}onstackit.cloud"
 
     private val sharedHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(Duration.ofSeconds(10))
