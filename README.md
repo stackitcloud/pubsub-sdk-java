@@ -22,7 +22,7 @@ Every GitHub Release publishes `pubsub-sdk-java` to Maven Central automatically 
 implementation("cloud.stackit.sdk:pubsub-sdk-java:1.0.0")
 ```
 
-Requires JDK 21+. Runtime dependencies: `cloud.stackit.sdk:core`, `okhttp`, `gson`.
+Requires JDK 21+. Runtime dependencies: `cloud.stackit.sdk:core`, `java-jwt`, `okhttp`, `gson`.
 
 ## Auth
 

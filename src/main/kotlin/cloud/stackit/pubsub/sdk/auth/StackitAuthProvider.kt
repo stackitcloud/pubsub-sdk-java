@@ -2,21 +2,30 @@ package cloud.stackit.pubsub.sdk.auth
 
 import cloud.stackit.sdk.core.KeyFlowAuthenticator
 import cloud.stackit.sdk.core.config.CoreConfiguration
+import com.auth0.jwt.JWT
 import okhttp3.OkHttpClient
 import cloud.stackit.pubsub.sdk.errors.PubSubError
 import java.security.spec.InvalidKeySpecException
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
-class StackitAuthProvider(
-    private val config: AuthConfig
+class StackitAuthProvider internal constructor(
+    private val config: AuthConfig,
+    private val authenticatorFactory: (CoreConfiguration) -> KeyFlowAuthenticator
 ) : AuthProvider {
+    constructor(config: AuthConfig) : this(
+        config,
+        { coreConfig -> KeyFlowAuthenticator(OkHttpClient.Builder().build(), coreConfig) }
+    )
+
     private val tokenRef = AtomicReference<TokenRecord>(EMPTY_TOKEN)
+
+    // Long-lived authenticator, created once per provider so its refresh token is reused.
+    private var authenticator: KeyFlowAuthenticator? = null
 
     private companion object {
         val EMPTY_TOKEN = TokenRecord(null, Instant.EPOCH)
         val TOKEN_EXPIRY_BUFFER: java.time.Duration = java.time.Duration.ofSeconds(60)
-        val TOKEN_LIFETIME: java.time.Duration = java.time.Duration.ofSeconds(3600)
     }
 
     private data class TokenRecord(
@@ -61,12 +70,13 @@ class StackitAuthProvider(
 
     private fun fetchTokenFromStackit(): Pair<String, Instant> {
         return try {
-            val coreConfig: CoreConfiguration = config.toCoreConfiguration()
-            val httpClient = OkHttpClient.Builder().build()
+            // Same leeway as our cache buffer, so the authenticator refreshes exactly when we ask it to.
+            val auth = authenticator ?: authenticatorFactory(
+                config.toCoreConfiguration().tokenExpirationLeeway(TOKEN_EXPIRY_BUFFER.seconds)
+            ).also { authenticator = it }
 
-            val authenticator = KeyFlowAuthenticator(httpClient, coreConfig)
-            val accessToken = authenticator.accessToken
-            val expiresAt = Instant.now().plus(TOKEN_LIFETIME)
+            val accessToken = auth.accessToken
+            val expiresAt = JWT.decode(accessToken).expiresAtAsInstant
             accessToken to expiresAt
         } catch (e: InvalidKeySpecException) {
             throw PubSubError.AuthError.InvalidKey("Invalid private key in service account: ${e.message}", e)

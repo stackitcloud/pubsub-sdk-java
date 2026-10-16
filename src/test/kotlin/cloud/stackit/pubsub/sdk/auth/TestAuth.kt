@@ -1,11 +1,23 @@
 package cloud.stackit.pubsub.sdk.auth
 
+import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.test.MockAuthProvider
+import cloud.stackit.sdk.core.KeyFlowAuthenticator
+import cloud.stackit.sdk.core.config.CoreConfiguration
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Disabled
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import java.io.IOException
+import java.time.Instant
 
 class TestAuthConfig {
     @Test
@@ -60,6 +72,63 @@ class TestAuthConfig {
 }
 
 class TestStackitAuthProvider {
+    private fun makeJwt(lifetimeSeconds: Long): String =
+        JWT.create()
+            .withExpiresAt(Instant.now().plusSeconds(lifetimeSeconds))
+            .sign(Algorithm.HMAC256("secret"))
+
+    private val keyConfig = AuthConfig(serviceAccountKeyPath = "sa-key.json")
+
+    @Test
+    fun `reuses authenticator and caches token until expiry`() {
+        val token = makeJwt(900)
+        val authenticator = mock<KeyFlowAuthenticator> { on { accessToken } doReturn token }
+        var created = 0
+        val provider = StackitAuthProvider(keyConfig) { created++; authenticator }
+
+        assertEquals(token, provider.getToken())
+        assertEquals(token, provider.getToken())
+
+        assertEquals(1, created)
+        verify(authenticator, times(1)).accessToken
+    }
+
+    @Test
+    fun `refreshes via same authenticator when token is within expiry buffer`() {
+        val expiring = makeJwt(30)
+        val refreshed = makeJwt(1800)
+        val authenticator = mock<KeyFlowAuthenticator> {
+            on { accessToken }.doReturn(expiring, refreshed)
+        }
+        var created = 0
+        val provider = StackitAuthProvider(keyConfig) { created++; authenticator }
+
+        assertEquals(expiring, provider.getToken())
+        assertEquals(refreshed, provider.getToken())
+
+        assertEquals(1, created)
+        verify(authenticator, times(2)).accessToken
+    }
+
+    @Test
+    fun `configures authenticator leeway to match cache buffer`() {
+        var captured: CoreConfiguration? = null
+        val authenticator = mock<KeyFlowAuthenticator> { on { accessToken } doReturn makeJwt(900) }
+        val provider = StackitAuthProvider(keyConfig) { captured = it; authenticator }
+
+        provider.getToken()
+
+        assertEquals(60L, captured!!.tokenExpirationLeeway)
+    }
+
+    @Test
+    fun `wraps authenticator failures in TokenAcquisitionFailed`() {
+        val authenticator = mock<KeyFlowAuthenticator> { on { accessToken } doThrow IOException("boom") }
+        val provider = StackitAuthProvider(keyConfig) { authenticator }
+
+        assertThrows<PubSubError.AuthError.TokenAcquisitionFailed> { provider.getToken() }
+    }
+
     @Test
     fun `throws when no credentials configured`() {
         val config = AuthConfig()
