@@ -34,31 +34,15 @@ class TestPublishMessagesRequest {
     }
 }
 
-class TestPublishMessagesResponse {
-    @Test
-    fun `has messageIds`() {
-        val response = PublishMessagesResponse(listOf(1L, 2L, 3L))
-        assert(response.messageIds == listOf(1L, 2L, 3L))
-    }
-
-    @Test
-    fun `empty messageIds`() {
-        val response = PublishMessagesResponse(emptyList())
-        assert(response.messageIds.isEmpty())
-    }
-}
-
 class TestMessage {
     @Test
     fun `create message`() {
         val msg = Message(
-            id = 1L,
             ackId = "ack-1",
             data = "SGVsbG8=",
             createTime = Instant.parse("2024-01-01T00:00:00Z"),
             deliveryAttempts = 1L
         )
-        assert(msg.id == 1L)
         assert(msg.ackId == "ack-1")
         assert(msg.deliveryAttempts == 1L)
     }
@@ -66,7 +50,6 @@ class TestMessage {
     @Test
     fun `payload decodes base64`() {
         val msg = Message(
-            id = 1L,
             ackId = "ack-1",
             data = "dGVzdCBkYXRh",
             createTime = Instant.parse("2024-01-01T00:00:00Z"),
@@ -79,7 +62,6 @@ class TestMessage {
     @Test
     fun `text decodes utf8`() {
         val msg = Message(
-            id = 1L,
             ackId = "ack-1",
             data = "SGVsbG8sIFdvcmxkIQ==",
             createTime = Instant.parse("2024-01-01T00:00:00Z"),
@@ -93,7 +75,6 @@ class TestMessagesResponse {
     @Test
     fun `container holds messages`() {
         val msg = Message(
-            id = 1L,
             ackId = "ack-1",
             data = "dGVzdA==",
             createTime = Instant.parse("2024-01-01T00:00:00Z"),
@@ -101,7 +82,7 @@ class TestMessagesResponse {
         )
         val response = MessagesResponse(listOf(msg))
         assert(response.messages.size == 1)
-        assert(response.messages[0].id == 1L)
+        assert(response.messages[0].ackId == "ack-1")
     }
 }
 

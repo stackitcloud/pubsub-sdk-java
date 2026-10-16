@@ -64,7 +64,7 @@ class TestSubscriberPull {
     fun `pull returns messages`() {
         val response = MockResponse()
             .setResponseCode(200)
-            .setBody("""{"messages":[{"id":1,"ackId":"ack-1","data":"SGVsbG8sIFdvcmxkIQ==","createTime":"2024-01-01T00:00:00Z","deliveryAttempts":1},{"id":2,"ackId":"ack-2","data":"U2Vjb25kIG1lc3NhZ2U=","createTime":"2024-01-01T00:01:00Z","deliveryAttempts":1}]}""")
+            .setBody("""{"messages":[{"ackId":"ack-1","data":"SGVsbG8sIFdvcmxkIQ==","createTime":"2024-01-01T00:00:00Z","deliveryAttempts":1},{"ackId":"ack-2","data":"U2Vjb25kIG1lc3NhZ2U=","createTime":"2024-01-01T00:01:00Z","deliveryAttempts":1}]}""")
             .addHeader("Content-Type", "application/json")
 
         val subscriber = createSubscriber(response)
@@ -72,7 +72,6 @@ class TestSubscriberPull {
 
         assertEquals(2, messages.size)
         assertEquals("ack-1", messages[0].ackId)
-        assertEquals(1L, messages[0].id)
         assertEquals("Hello, World!", messages[0].text)
     }
 

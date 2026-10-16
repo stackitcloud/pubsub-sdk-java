@@ -38,11 +38,7 @@ public class BatchExample {
                 .toList();
 
             // Publish in batches
-            var responses = publisher.publishBatch(messages, 100);
-            System.out.println("Published " + responses.size() + " batches");
-            for (int i = 0; i < responses.size(); i++) {
-                System.out.println("  Batch " + (i + 1) + ": " + responses.get(i).getMessageIds().size() + " messages");
-            }
+            publisher.publishBatch(messages, 100);
             System.out.println("Total messages sent: " + publisher.getMessagesSent());
             System.out.println("Total publish calls: " + publisher.getPublishCalls());
 

@@ -18,11 +18,3 @@ data class PublishMessagesRequest(
     val messages: List<PublishMessage>
 )
 
-/**
- * Response from publishing messages.
- *
- * @param messageIds Unique sequence numbers identifying the published messages.
- */
-data class PublishMessagesResponse(
-    val messageIds: List<Long>
-)

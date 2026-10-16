@@ -367,8 +367,7 @@ class IntegrationTest {
             PublishMessage("cHViIHN1YnNjcmliZXIgdGVzdA==")
         )
 
-        val publishResponse = publisher.publish(testMessages)
-        assertEquals(3, publishResponse.messageIds.size)
+        publisher.publish(testMessages)
         assertEquals(3, publisher.messagesSent.get())
         assertEquals(1, publisher.publishCalls.get())
 
@@ -392,7 +391,7 @@ class IntegrationTest {
         subscriber.ack(ackIds)
 
         assertTrue(pulledMessages.all { msg ->
-            msg.id in publishResponse.messageIds || msg.text in listOf("hello world", "test message", "pub subscriber test")
+            msg.text in listOf("hello world", "test message", "pub subscriber test")
         })
     }
 
@@ -419,10 +418,8 @@ class IntegrationTest {
             PublishMessage("bGFyZ2UtYmF0Y2gtbWVzc2FnZSAtICRp")
         }
 
-        val batchResults = publisher.publishBatch(allMessages, batchSize = 10)
-        assertEquals(2, batchResults.size)
-        val totalIds = batchResults.sumOf { it.messageIds.size }
-        assertEquals(20, totalIds)
+        publisher.publishBatch(allMessages, batchSize = 10)
+        assertEquals(2, publisher.publishCalls.get())
         assertEquals(20, publisher.messagesSent.get())
 
         Thread.sleep(2000)
@@ -523,7 +520,7 @@ class IntegrationTest {
 
         val publisher = client.getPublisher()
         val testMessage = PublishMessage("aGVsbG8gd29ybGQ=")
-        val response = publisher.publish(listOf(testMessage))
-        assertEquals(1, response.messageIds.size)
+        publisher.publish(listOf(testMessage))
+        assertEquals(1, publisher.messagesSent.get())
     }
 }

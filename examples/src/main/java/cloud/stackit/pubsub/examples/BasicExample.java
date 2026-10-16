@@ -43,8 +43,8 @@ public class BasicExample {
             PublishMessage message = new PublishMessage(base64Payload);
 
             var publisher = client.getPublisher();
-            var response = publisher.publish(List.of(message));
-            System.out.println("Published messages with IDs: " + response.getMessageIds());
+            publisher.publish(List.of(message));
+            System.out.println("Published 1 message successfully.");
             System.out.println("Messages sent: " + publisher.getMessagesSent());
             System.out.println("Publish calls: " + publisher.getPublishCalls());
 
@@ -54,7 +54,7 @@ public class BasicExample {
             System.out.println("Received " + messages.size() + " messages");
 
             for (Message msg : messages) {
-                System.out.println("  - ID: " + msg.getId() + ", Text: " + msg.getText() +
+                System.out.println("  - Ack ID: " + msg.getAckId() + ", Text: " + msg.getText() +
                     ", Attempts: " + msg.getDeliveryAttempts());
             }
 

@@ -44,8 +44,7 @@ class TestPublisherConcurrency {
         repeat(totalMessages) {
             server.enqueue(
                 MockResponse()
-                    .setResponseCode(200)
-                    .setBody("""{"messageIds":[${it}]}""")
+                    .setResponseCode(204)
                     .addHeader("Content-Type", "application/json")
             )
         }
@@ -89,8 +88,7 @@ class TestPublisherConcurrency {
         repeat(threadCount) {
             server.enqueue(
                 MockResponse()
-                    .setResponseCode(200)
-                    .setBody("""{"messageIds":[1]}""")
+                    .setResponseCode(204)
                     .addHeader("Content-Type", "application/json")
             )
         }
@@ -185,8 +183,7 @@ class TestClientConcurrency {
             repeat(5) {
                 server.enqueue(
                     MockResponse()
-                        .setResponseCode(200)
-                        .setBody("""{"messageIds":[1]}""")
+                        .setResponseCode(204)
                         .addHeader("Content-Type", "application/json")
                 )
             }
@@ -215,8 +212,7 @@ class TestClientConcurrency {
 
             server.enqueue(
                 MockResponse()
-                    .setResponseCode(200)
-                    .setBody("""{"messageIds":[1]}""")
+                    .setResponseCode(204)
                     .addHeader("Content-Type", "application/json")
             )
             server.enqueue(

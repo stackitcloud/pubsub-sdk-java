@@ -9,7 +9,6 @@ import cloud.stackit.pubsub.sdk.auth.AuthProvider
 import cloud.stackit.pubsub.sdk.errors.PubSubError
 import cloud.stackit.pubsub.sdk.models.PublishMessage
 import cloud.stackit.pubsub.sdk.models.PublishMessagesRequest
-import cloud.stackit.pubsub.sdk.models.PublishMessagesResponse
 import cloud.stackit.pubsub.sdk.retry.RetryConfig
 import cloud.stackit.pubsub.sdk.retry.isRetryableException
 import cloud.stackit.pubsub.sdk.retry.isRetryableStatusCode
@@ -57,9 +56,8 @@ class PubSubPublisher(
      * Publish messages to the topic.
      *
      * @param messages List of messages to publish (max 100).
-     * @return Response with assigned message IDs.
      */
-    fun publish(messages: List<PublishMessage>): PublishMessagesResponse {
+    fun publish(messages: List<PublishMessage>) {
         require(messages.isNotEmpty()) { "Cannot publish an empty list of messages" }
         require(messages.size <= 100) { "Maximum 100 messages per publish request" }
 
@@ -78,12 +76,9 @@ class PubSubPublisher(
 
         val (statusCode, body) = executeWithRetry(request)
 
-        if (statusCode == 200) {
-            val response = gson.fromJson(body, PublishMessagesResponse::class.java)
-            return response
+        if (statusCode != 204) {
+            handleErrorResponse(statusCode, body)
         }
-
-        handleErrorResponse(statusCode, body)
     }
 
     /**
@@ -91,16 +86,11 @@ class PubSubPublisher(
      *
      * @param messages All messages to publish.
      * @param batchSize Maximum messages per batch (default: 100).
-     * @return List of responses, one per batch.
      */
-    fun publishBatch(messages: List<PublishMessage>, batchSize: Int = 100): List<PublishMessagesResponse> {
-        if (messages.isEmpty()) return emptyList()
-
-        val responses = mutableListOf<PublishMessagesResponse>()
+    fun publishBatch(messages: List<PublishMessage>, batchSize: Int = 100) {
         messages.chunked(batchSize).forEach { batch ->
-            responses.add(publish(batch))
+            publish(batch)
         }
-        return responses
     }
 
     /**

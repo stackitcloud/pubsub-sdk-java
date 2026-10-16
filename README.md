@@ -76,8 +76,7 @@ fun main() {
 
     // Publish
     val publisher = client.getPublisher()
-    val response = publisher.publish(listOf(PublishMessage("aGVsbG8=")))  // base64-encoded "hello"
-    println(response.messageIds)
+    publisher.publish(listOf(PublishMessage("aGVsbG8=")))  // base64-encoded "hello"
 
     // Subscribe
     val subscriber = client.getSubscriber(UUID.fromString("your-subscription-uuid"))

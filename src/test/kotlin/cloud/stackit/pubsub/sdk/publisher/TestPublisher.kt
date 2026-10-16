@@ -62,17 +62,15 @@ class TestPublisherPublish {
     }
 
     @Test
-    fun `publish returns response with messageIds`() {
+    fun `publish succeeds on 204`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[1,2,3]}""")
+            .setResponseCode(204)
             .addHeader("Content-Type", "application/json")
 
         val publisher = createPublisher(response)
         val messages = listOf(PublishMessage("aGVsbG8="), PublishMessage("d29ybGQ="))
-        val result = publisher.publish(messages)
+        publisher.publish(messages)
 
-        assertEquals(listOf(1L, 2L, 3L), result.messageIds)
         assertEquals(2, publisher.messagesSent.get())
         assertEquals(1, publisher.publishCalls.get())
     }
@@ -80,8 +78,7 @@ class TestPublisherPublish {
     @Test
     fun `publish sends correct payload`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[1]}""")
+            .setResponseCode(204)
             .addHeader("Content-Type", "application/json")
 
         val publisher = createPublisher(response)
@@ -95,8 +92,7 @@ class TestPublisherPublish {
     @Test
     fun `publish empty list throws`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[]}""")
+            .setResponseCode(204)
 
         val publisher = createPublisher(response)
         assertThrows(IllegalArgumentException::class.java) {
@@ -107,8 +103,7 @@ class TestPublisherPublish {
     @Test
     fun `publish too many messages throws`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[]}""")
+            .setResponseCode(204)
 
         val publisher = createPublisher(response)
         val messages = List(101) { PublishMessage("dGVzdA==") }
@@ -120,8 +115,7 @@ class TestPublisherPublish {
     @Test
     fun `publish batch splits messages`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[1]}""")
+            .setResponseCode(204)
 
         server.enqueue(response)
         server.enqueue(response)
@@ -133,21 +127,20 @@ class TestPublisherPublish {
             authProvider = authProvider
         )
         val messages = List(5) { PublishMessage("dGVzdA==") }
-        val results = publisher.publishBatch(messages, batchSize = 2)
+        publisher.publishBatch(messages, batchSize = 2)
 
-        assertEquals(3, results.size)
+        assertEquals(5, publisher.messagesSent.get())
         assertEquals(3, publisher.publishCalls.get())
     }
 
     @Test
-    fun `publish batch empty returns empty list`() {
+    fun `publish batch empty sends nothing`() {
         val response = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[]}""")
+            .setResponseCode(204)
 
         val publisher = createPublisher(response)
-        val results = publisher.publishBatch(emptyList())
-        assertTrue(results.isEmpty())
+        publisher.publishBatch(emptyList())
+        assertEquals(0, publisher.publishCalls.get())
     }
 
     @Test
@@ -156,8 +149,7 @@ class TestPublisherPublish {
             .setResponseCode(503)
             .setBody("Service Unavailable")
         val okResponse = MockResponse()
-            .setResponseCode(200)
-            .setBody("""{"messageIds":[42]}""")
+            .setResponseCode(204)
             .addHeader("Content-Type", "application/json")
 
         server.enqueue(errorResponse)
@@ -177,9 +169,8 @@ class TestPublisherPublish {
             authProvider = authProvider,
             retryConfig = retryConfig
         )
-        val result = publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        publisher.publish(listOf(PublishMessage("dGVzdA==")))
 
-        assertEquals(listOf(42L), result.messageIds)
         assertEquals(3, server.requestCount)
     }
 
