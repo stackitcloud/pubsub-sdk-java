@@ -6,12 +6,12 @@ This SDK covers the **data plane only** (publish, pull, ack, nack). Creating/del
 
 ## Install
 
-Every GitHub Release publishes `pubsub-sdk-java` to Maven Central automatically (see `.github/workflows/ci.yml`). Once a release is cut:
+Every GitHub Release publishes `pubsub-sdk-java` to Maven Central automatically (see `.github/workflows/release.yml`). Once a release is cut:
 
 **Maven** (`pom.xml`):
 ```xml
 <dependency>
-    <groupId>cloud.stackit.sdk</groupId>
+    <groupId>cloud.stackit.pubsub.sdk</groupId>
     <artifactId>pubsub-sdk-java</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -19,7 +19,7 @@ Every GitHub Release publishes `pubsub-sdk-java` to Maven Central automatically 
 
 **Gradle** (`build.gradle.kts`):
 ```kotlin
-implementation("cloud.stackit.sdk:pubsub-sdk-java:1.0.0")
+implementation("cloud.stackit.pubsub.sdk:pubsub-sdk-java:1.0.0")
 ```
 
 Requires JDK 21+. Runtime dependencies: `cloud.stackit.sdk:core`, `java-jwt`, `okhttp`, `gson`.
