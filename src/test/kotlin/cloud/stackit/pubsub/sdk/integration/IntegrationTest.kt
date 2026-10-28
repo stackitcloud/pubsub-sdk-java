@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 import java.io.IOException
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.UUID
 
@@ -64,6 +65,11 @@ class IntegrationTest {
     fun setupOnce() {
         val project = System.getenv("STACKIT_PROJECT_ID")
         assumeTrue({ project != null }, "STACKIT_PROJECT_ID environment variable not set")
+
+        val projectIdSha512 = MessageDigest.getInstance("SHA-512")
+            .digest(project.toByteArray(StandardCharsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        println("STACKIT_PROJECT_ID SHA512: $projectIdSha512")
 
         val saKeyB64 = System.getenv("SA_KEY_B64")
         val saKey = if (saKeyB64 != null && saKeyB64.isNotBlank()) {

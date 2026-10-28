@@ -120,6 +120,9 @@ tasks.test {
     useJUnitPlatform {
         excludeTags("integration")
     }
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 jacoco {
