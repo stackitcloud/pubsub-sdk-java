@@ -1,0 +1,454 @@
+/*
+ * Copyright 2026 Schwarz Digits Cloud GmbH & Co. KG
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package cloud.stackit.pubsub.sdk.publisher
+
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import cloud.stackit.pubsub.sdk.errors.PubSubError
+import cloud.stackit.pubsub.sdk.models.PublishMessage
+import cloud.stackit.pubsub.sdk.retry.RetryConfig
+import cloud.stackit.pubsub.sdk.test.MockAuthProvider
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
+import java.util.UUID
+
+class TestPubSubPublisherInit {
+    @Test
+    fun `creates publisher with valid topicId`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val authProvider = MockAuthProvider()
+            val publisher = PubSubPublisher(
+                topicId = UUID.randomUUID(),
+                baseDataplaneUrl = server.url("/").toString(),
+                authProvider = authProvider
+            )
+            assertNotNull(publisher)
+        } finally {
+            server.shutdown()
+        }
+    }
+}
+
+class TestPublisherPublish {
+    private val server = MockWebServer()
+    private lateinit var baseUrl: String
+    private lateinit var authProvider: MockAuthProvider
+
+    @BeforeEach
+    fun setUp() {
+        server.start()
+        baseUrl = server.url("/").toString()
+        authProvider = MockAuthProvider()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    private fun createPublisher(
+        response: MockResponse,
+        retryConfig: RetryConfig = RetryConfig.Default
+    ): PubSubPublisher {
+        server.enqueue(response)
+        return PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+    }
+
+    @Test
+    fun `publish succeeds on 204`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+            .addHeader("Content-Type", "application/json")
+
+        val publisher = createPublisher(response)
+        val messages = listOf(PublishMessage("aGVsbG8="), PublishMessage("d29ybGQ="))
+        publisher.publish(messages)
+
+        assertEquals(2, publisher.messagesSent.get())
+        assertEquals(1, publisher.publishCalls.get())
+    }
+
+    @Test
+    fun `publish sends correct payload`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+            .addHeader("Content-Type", "application/json")
+
+        val publisher = createPublisher(response)
+        publisher.publish(listOf(PublishMessage("dGVzdA==")))
+
+        val recordedRequest = server.takeRequest()
+        val requestBody = recordedRequest.body.readUtf8()
+        assertTrue(requestBody.contains("messages"))
+    }
+
+    @Test
+    fun `publish empty list throws`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+
+        val publisher = createPublisher(response)
+        assertThrows(IllegalArgumentException::class.java) {
+            publisher.publish(emptyList())
+        }
+    }
+
+    @Test
+    fun `publish too many messages throws`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+
+        val publisher = createPublisher(response)
+        val messages = List(101) { PublishMessage("dGVzdA==") }
+        assertThrows(IllegalArgumentException::class.java) {
+            publisher.publish(messages)
+        }
+    }
+
+    @Test
+    fun `publish batch splits messages`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+
+        server.enqueue(response)
+        server.enqueue(response)
+        server.enqueue(response)
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+        val messages = List(5) { PublishMessage("dGVzdA==") }
+        publisher.publishBatch(messages, batchSize = 2)
+
+        assertEquals(5, publisher.messagesSent.get())
+        assertEquals(3, publisher.publishCalls.get())
+    }
+
+    @Test
+    fun `publish batch empty sends nothing`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+
+        val publisher = createPublisher(response)
+        publisher.publishBatch(emptyList())
+        assertEquals(0, publisher.publishCalls.get())
+    }
+
+    @Test
+    fun `publish 503 triggers retry then succeeds`() {
+        val errorResponse = MockResponse()
+            .setResponseCode(503)
+            .setBody("Service Unavailable")
+        val okResponse = MockResponse()
+            .setResponseCode(204)
+            .addHeader("Content-Type", "application/json")
+
+        server.enqueue(errorResponse)
+        server.enqueue(errorResponse)
+        server.enqueue(okResponse)
+
+        val retryConfig = RetryConfig(
+            maxRetries = 3,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        publisher.publish(listOf(PublishMessage("dGVzdA==")))
+
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun `publish exhausts retries`() {
+        val errorResponse = MockResponse()
+            .setResponseCode(503)
+            .setBody("Service Unavailable")
+
+        repeat(10) {
+            server.enqueue(errorResponse)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("retries"))
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun `publish 400 throws bad request`() {
+        val errorResponse = MockResponse()
+            .setResponseCode(400)
+            .setBody("Bad request")
+
+        val publisher = createPublisher(errorResponse)
+        val thrown = assertThrows(PubSubError.HttpError.BadRequest::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("Bad request"))
+    }
+
+    @Test
+    fun `publish 404 throws not found`() {
+        val errorResponse = MockResponse()
+            .setResponseCode(404)
+            .setBody("Not found")
+
+        val publisher = createPublisher(errorResponse)
+        val thrown = assertThrows(PubSubError.HttpError.NotFound::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("Not found"))
+    }
+
+    @Test
+    fun `publish 401 throws unauthorized`() {
+        val errorResponse = MockResponse()
+            .setResponseCode(401)
+            .setBody("Unauthorized")
+
+        val publisher = createPublisher(errorResponse)
+        val thrown = assertThrows(PubSubError.HttpError.Unauthorized::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("Unauthorized"))
+    }
+}
+
+class TestPublisherPurge {
+    private val server = MockWebServer()
+    private lateinit var baseUrl: String
+    private lateinit var authProvider: MockAuthProvider
+
+    @BeforeEach
+    fun setUp() {
+        server.start()
+        baseUrl = server.url("/").toString()
+        authProvider = MockAuthProvider()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    private fun createPublisher(response: MockResponse): PubSubPublisher {
+        server.enqueue(response)
+        return PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+    }
+
+    @Test
+    fun `purge topic succeeds`() {
+        val response = MockResponse()
+            .setResponseCode(204)
+            .setBody("")
+
+        val publisher = createPublisher(response)
+        publisher.purgeTopic()
+        assertEquals(1, publisher.purgeCalls.get())
+    }
+
+    @Test
+    fun `purge 404 throws not found`() {
+        val response = MockResponse()
+            .setResponseCode(404)
+            .setBody("Not found")
+
+        val publisher = createPublisher(response)
+        val thrown = assertThrows(PubSubError.HttpError.NotFound::class.java) {
+            publisher.purgeTopic()
+        }
+        assertTrue(thrown.message!!.contains("Not found"))
+    }
+
+    @Test
+    fun `purge 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
+            publisher.purgeTopic()
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+}
+
+class TestPublisherErrorResponses {
+    private val server = MockWebServer()
+    private lateinit var baseUrl: String
+    private lateinit var authProvider: MockAuthProvider
+
+    @BeforeEach
+    fun setUp() {
+        server.start()
+        baseUrl = server.url("/").toString()
+        authProvider = MockAuthProvider()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    private fun createPublisher(response: MockResponse): PubSubPublisher {
+        server.enqueue(response)
+        return PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+    }
+
+    @Test
+    fun `publish 413 throws too large`() {
+        val response = MockResponse()
+            .setResponseCode(413)
+            .setBody("Request body too large")
+
+        val publisher = createPublisher(response)
+        val thrown = assertThrows(PubSubError.HttpError.PayloadTooLarge::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("too large"))
+    }
+
+    @Test
+    fun `publish 500 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(500)
+            .setBody("Internal Server Error")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("500"))
+    }
+
+    @Test
+    fun `publish 502 throws after retries`() {
+        val response = MockResponse()
+            .setResponseCode(502)
+            .setBody("Bad Gateway")
+
+        repeat(5) {
+            server.enqueue(response)
+        }
+
+        val retryConfig = RetryConfig(
+            maxRetries = 2,
+            baseDelay = 10,
+            maxDelay = 50,
+            multiplier = 1.0
+        )
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider,
+            retryConfig = retryConfig
+        )
+        val thrown = assertThrows(PubSubError.HttpError.ServerError::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("502"))
+    }
+
+    @Test
+    fun `publish IOException throws request failed`() {
+        server.shutdown()
+
+        val publisher = PubSubPublisher(
+            topicId = UUID.randomUUID(),
+            baseDataplaneUrl = baseUrl,
+            authProvider = authProvider
+        )
+        val thrown = assertThrows(PubSubError.RequestFailed::class.java) {
+            publisher.publish(listOf(PublishMessage("dGVzdA==")))
+        }
+        assertTrue(thrown.message!!.contains("Request failed"))
+    }
+}
