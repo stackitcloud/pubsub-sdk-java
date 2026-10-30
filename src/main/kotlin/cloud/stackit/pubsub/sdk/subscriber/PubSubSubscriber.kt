@@ -41,6 +41,7 @@ import cloud.stackit.pubsub.sdk.retry.isRetryableStatusCode
 import java.io.IOException
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Subscriber interface for receiving messages from a STACKIT PubSub subscription.
@@ -52,8 +53,11 @@ import java.util.UUID
  * @param maxMessages Maximum messages to pull per request.
  * @param longPullDurationMs Long pull timeout in milliseconds.
  * @param httpClient Shared HTTP client for connection reuse.
+ * @param pullCalls Total count of pull calls made.
+ * @param ackCalls Total count of ack calls made.
+ * @param nackCalls Total count of nack calls made.
  */
-class PubSubSubscriber(
+class PubSubSubscriber @JvmOverloads constructor(
     private val subscriptionId: UUID,
     private val baseDataplaneUrl: String,
     private val authProvider: AuthProvider,
@@ -81,6 +85,12 @@ class PubSubSubscriber(
         .writeTimeout(Duration.ofSeconds(10))
         .build()
 
+    val pullCalls: AtomicInteger = AtomicInteger(0)
+
+    val ackCalls: AtomicInteger = AtomicInteger(0)
+
+    val nackCalls: AtomicInteger = AtomicInteger(0)
+
     init {
         require(maxMessages in 1..32) { "maxMessages must be between 1 and 32" }
         require(longPullDurationMs in 100..5000) { "longPullDurationMs must be between 100 and 5000" }
@@ -93,11 +103,14 @@ class PubSubSubscriber(
      * @param longPullDurationMs Override long pull duration (default: 5000ms).
      * @return List of messages.
      */
+    @JvmOverloads
     fun pull(
         maxMessages: Int = this.maxMessages,
         longPullDurationMs: Int = this.longPullDurationMs
     ): List<Message> {
         require(maxMessages in 1..32) { "maxMessages must be between 1 and 32" }
+
+        pullCalls.incrementAndGet()
 
         val request = Request.Builder()
             .url("$baseDataplaneUrl/v1alpha/subscriptions/$subscriptionId/pull")
@@ -127,6 +140,8 @@ class PubSubSubscriber(
     fun ack(ackIds: List<String>) {
         require(ackIds.isNotEmpty()) { "ackIds must not be empty" }
 
+        ackCalls.incrementAndGet()
+
         val request = Request.Builder()
             .url("$baseDataplaneUrl/v1alpha/subscriptions/$subscriptionId/ack")
             .post(gson.toJson(AckMessagesRequest(ackIds)).toRequestBody(jsonMediaType))
@@ -149,6 +164,8 @@ class PubSubSubscriber(
      */
     fun nack(nackIds: List<String>) {
         require(nackIds.isNotEmpty()) { "nackIds must not be empty" }
+
+        nackCalls.incrementAndGet()
 
         val request = Request.Builder()
             .url("$baseDataplaneUrl/v1alpha/subscriptions/$subscriptionId/nack")

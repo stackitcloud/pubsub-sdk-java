@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * @param publishCalls Total count of publish calls made.
  * @param purgeCalls Total count of purge calls made.
  */
-class PubSubPublisher(
+class PubSubPublisher @JvmOverloads constructor(
     private val topicId: UUID,
     private val baseDataplaneUrl: String,
     private val authProvider: AuthProvider,
@@ -103,6 +103,7 @@ class PubSubPublisher(
      * @param messages All messages to publish.
      * @param batchSize Maximum messages per batch (default: 100).
      */
+    @JvmOverloads
     fun publishBatch(messages: List<PublishMessage>, batchSize: Int = 100) {
         messages.chunked(batchSize).forEach { batch ->
             publish(batch)

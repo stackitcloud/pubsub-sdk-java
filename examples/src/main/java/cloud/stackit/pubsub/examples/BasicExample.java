@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.examples;
 
 import cloud.stackit.pubsub.sdk.auth.AuthConfig;
 import cloud.stackit.pubsub.sdk.client.PubSubClient;
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError;
+import cloud.stackit.pubsub.sdk.errors.PubSubError;
 import cloud.stackit.pubsub.sdk.models.Message;
 import cloud.stackit.pubsub.sdk.models.PublishMessage;
 
@@ -40,18 +40,10 @@ public class BasicExample {
 
         try {
             // Initialize auth config with service account key file path
-            AuthConfig authConfig = new AuthConfig(
-                null,
-                "sa-key.json",
-                null,
-                "https://authorization.stackit.cloud/auth/token"
-            );
+            AuthConfig authConfig = new AuthConfig(null, "sa-key.json");
 
             // Create the client with topic ID and auth config
-            PubSubClient client = new PubSubClient(
-                TOPIC_ID,
-                authConfig
-            );
+            PubSubClient client = new PubSubClient(TOPIC_ID, authConfig);
 
             // Publish a message
             String payload = "Hello, PubSub!";
@@ -80,7 +72,7 @@ public class BasicExample {
 
             System.out.println("Subscriber ack calls: " + subscriber.getAckCalls());
 
-        } catch (PubSubAuthError e) {
+        } catch (PubSubError e) {
             System.err.println("PubSub error: " + e.getMessage());
             if (e.getCause() != null) {
                 System.err.println("  Caused by: " + e.getCause().getMessage());

@@ -29,13 +29,14 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <pubsub-sdk.version>0.1.1</pubsub-sdk.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>cloud.stackit.sdk</groupId>
+            <groupId>cloud.stackit.pubsub.sdk</groupId>
             <artifactId>pubsub-sdk-java</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${pubsub-sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>cloud.stackit.sdk</groupId>

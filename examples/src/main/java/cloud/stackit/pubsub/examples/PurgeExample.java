@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.examples;
 
 import cloud.stackit.pubsub.sdk.auth.AuthConfig;
 import cloud.stackit.pubsub.sdk.client.PubSubClient;
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError;
+import cloud.stackit.pubsub.sdk.errors.PubSubError;
 import cloud.stackit.pubsub.sdk.models.PublishMessage;
 
 import java.util.Base64;
@@ -37,12 +37,7 @@ public class PurgeExample {
         System.out.println("--- Example 4: Topic Purging ---");
 
         try {
-            AuthConfig authConfig = new AuthConfig(
-                null,
-                "sa-key.json",
-                null,
-                null
-            );
+            AuthConfig authConfig = new AuthConfig(null, "sa-key.json");
 
             PubSubClient client = new PubSubClient(TOPIC_ID, authConfig);
             var publisher = client.getPublisher();
@@ -52,7 +47,7 @@ public class PurgeExample {
             System.out.println("Topic purged successfully");
             System.out.println("Purge calls: " + publisher.getPurgeCalls());
 
-        } catch (PubSubAuthError e) {
+        } catch (PubSubError e) {
             System.err.println("PubSub error: " + e.getMessage());
         }
     }

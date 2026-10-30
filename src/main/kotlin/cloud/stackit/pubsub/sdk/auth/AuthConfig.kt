@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.sdk.auth
 
 import cloud.stackit.sdk.core.config.CoreConfiguration
 
-data class AuthConfig(
+data class AuthConfig @JvmOverloads constructor(
     val serviceAccountKey: String? = null,
     val serviceAccountKeyPath: String? = null,
     val privateKeyPath: String? = null,

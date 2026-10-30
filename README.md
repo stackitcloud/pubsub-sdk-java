@@ -1,25 +1,27 @@
 # pubsub-sdk-java
 
-Kotlin SDK for the **STACKIT PubSub Data Plane API**.
+[![Maven Central](https://img.shields.io/maven-central/v/cloud.stackit.pubsub.sdk/pubsub-sdk-java)](https://central.sonatype.com/artifact/cloud.stackit.pubsub.sdk/pubsub-sdk-java)
+
+Kotlin/Java SDK for the **STACKIT PubSub Data Plane API**.
 
 This SDK covers the **data plane only** (publish, pull, ack, nack). Creating/deleting topics and subscriptions, and granting publisher/subscriber access, is done via the separate STACKIT PubSub **control plane** REST API or the STACKIT Portal.
 
 ## Install
 
-Every GitHub Release publishes `pubsub-sdk-java` to Maven Central automatically (see `.github/workflows/release.yml`). Once a release is cut:
+The SDK is published to [Maven Central](https://central.sonatype.com/artifact/cloud.stackit.pubsub.sdk/pubsub-sdk-java) as `cloud.stackit.pubsub.sdk:pubsub-sdk-java`. Every GitHub Release publishes a new version automatically (see `.github/workflows/release.yml`); check the badge above or the [releases page](https://github.com/stackitcloud/pubsub-sdk-java/releases) for the latest version.
 
 **Maven** (`pom.xml`):
 ```xml
 <dependency>
     <groupId>cloud.stackit.pubsub.sdk</groupId>
     <artifactId>pubsub-sdk-java</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
 **Gradle** (`build.gradle.kts`):
 ```kotlin
-implementation("cloud.stackit.pubsub.sdk:pubsub-sdk-java:1.0.0")
+implementation("cloud.stackit.pubsub.sdk:pubsub-sdk-java:0.1.1")
 ```
 
 Requires JDK 21+. Runtime dependencies: `cloud.stackit.sdk:core`, `java-jwt`, `okhttp`, `gson`.
@@ -128,3 +130,10 @@ Standalone example programs demonstrating common patterns are in [`examples/`](e
 - `BatchExample.java` — batch publishing
 - `PurgeExample.java` — topic purging
 - `RetryExample.java` — custom retry configuration
+
+The examples depend on the published SDK version set in `examples/pom.xml` (`pubsub-sdk.version`). To run them against your local checkout instead:
+
+```sh
+./gradlew publishToMavenLocal -PreleaseVersion=0.0.0-local
+cd examples && mvn compile -Dpubsub-sdk.version=0.0.0-local
+```
