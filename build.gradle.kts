@@ -16,9 +16,8 @@
 
 plugins {
     `java-library`
-    `maven-publish`
-    signing
     kotlin("jvm") version "2.4.10"
+    id("com.vanniktech.maven.publish") version "0.37.0"
     id("jacoco")
 }
 
@@ -52,67 +51,44 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
+mavenPublishing {
+    coordinates(group.toString(), "pubsub-sdk-java", version.toString())
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
+    // Uploads via the Central Portal API and releases once validation passes.
+    publishToMavenCentral(automaticRelease = true)
 
-            pom {
-                name.set("pubsub-sdk-java")
-                description.set("Kotlin/Java SDK for the STACKIT PubSub Data Plane API")
-                url.set("https://github.com/stackitcloud/pubsub-sdk-java")
-
-                licenses {
-                    license {
-                        name.set("Apache License, Version 2.0")
-                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                }
-
-                developers {
-                    developer {
-                        id.set("stackit")
-                        name.set("STACKIT")
-                        email.set("opensource@stackit.cloud")
-                        organization.set("Schwarz Digits Cloud GmbH & Co. KG")
-                        organizationUrl.set("https://stackit.de")
-                    }
-                }
-
-                scm {
-                    connection.set("scm:git:git://github.com/stackitcloud/pubsub-sdk-java.git")
-                    developerConnection.set("scm:git:ssh://github.com:stackitcloud/pubsub-sdk-java.git")
-                    url.set("https://github.com/stackitcloud/pubsub-sdk-java")
-                }
-            }
-        }
+    // Signing is only required for Maven Central; allow unsigned local publishing.
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
     }
 
-    repositories {
-        maven {
-            name = "maven"
-            val releasesRepoUrl = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
-            val snapshotsRepoUrl = uri("https://central.sonatype.com/repository/maven-snapshots/")
-            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-            credentials {
-                username = findProperty("mavenCentralUsername") as String? ?: System.getenv("MAVEN_CENTRAL_USERNAME")
-                password = findProperty("mavenCentralPassword") as String? ?: System.getenv("MAVEN_CENTRAL_PASSWORD")
+    pom {
+        name.set("pubsub-sdk-java")
+        description.set("Kotlin/Java SDK for the STACKIT PubSub Data Plane API")
+        url.set("https://github.com/stackitcloud/pubsub-sdk-java")
+
+        licenses {
+            license {
+                name.set("Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
             }
         }
-    }
-}
 
-signing {
-    val signingKey = findProperty("signingInMemoryKey") as String? ?: System.getenv("GPG_SECRET_KEY")
-    val signingPassword = findProperty("signingInMemoryKeyPassword") as String? ?: System.getenv("GPG_PASSPHRASE")
-    if (!signingKey.isNullOrBlank()) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-        sign(publishing.publications["mavenJava"])
+        developers {
+            developer {
+                id.set("stackit")
+                name.set("STACKIT")
+                email.set("opensource@stackit.cloud")
+                organization.set("Schwarz Digits Cloud GmbH & Co. KG")
+                organizationUrl.set("https://stackit.de")
+            }
+        }
+
+        scm {
+            connection.set("scm:git:git://github.com/stackitcloud/pubsub-sdk-java.git")
+            developerConnection.set("scm:git:ssh://github.com:stackitcloud/pubsub-sdk-java.git")
+            url.set("https://github.com/stackitcloud/pubsub-sdk-java")
+        }
     }
 }
 
