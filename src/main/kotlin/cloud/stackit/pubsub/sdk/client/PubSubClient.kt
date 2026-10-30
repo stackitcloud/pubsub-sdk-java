@@ -39,7 +39,7 @@ import java.util.UUID
  * @param region API region (default: EU01).
  * @param environment STACKIT environment (default: PROD).
  */
-class PubSubClient(
+class PubSubClient @JvmOverloads constructor(
     val topicId: UUID,
     val authConfig: AuthConfig? = null,
     val region: Region = Region.EU01,
@@ -61,6 +61,7 @@ class PubSubClient(
      * @param retryConfig Optional retry configuration.
      * @return Configured PubSubPublisher.
      */
+    @JvmOverloads
     fun getPublisher(retryConfig: RetryConfig? = null): PubSubPublisher {
         return PubSubPublisher(
             topicId = topicId,
@@ -80,6 +81,7 @@ class PubSubClient(
      * @param longPullDurationMs Long pull timeout in ms (100-5000).
      * @return Configured PubSubSubscriber.
      */
+    @JvmOverloads
     fun getSubscriber(
         subscriptionId: UUID,
         retryConfig: RetryConfig? = null,

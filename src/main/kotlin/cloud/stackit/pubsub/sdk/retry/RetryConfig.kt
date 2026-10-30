@@ -25,7 +25,7 @@ package cloud.stackit.pubsub.sdk.retry
  * @param multiplier Multiplier applied to delay after each retry. Default: 2.0
  * @param jitterFactor Randomization factor (0.0-1.0) to avoid thundering herd. Default: 0.25
  */
-data class RetryConfig(
+data class RetryConfig @JvmOverloads constructor(
     val maxRetries: Int = 3,
     val baseDelay: Long = 500,
     val maxDelay: Long = 30_000,
@@ -33,6 +33,7 @@ data class RetryConfig(
     val jitterFactor: Double = 0.25
 ) {
     companion object {
+        @JvmField
         val Default = RetryConfig()
     }
 }

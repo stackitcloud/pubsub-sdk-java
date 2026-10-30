@@ -89,6 +89,7 @@ class TestSubscriberPull {
         assertEquals(2, messages.size)
         assertEquals("ack-1", messages[0].ackId)
         assertEquals("Hello, World!", messages[0].text)
+        assertEquals(1, subscriber.pullCalls.get())
     }
 
     @Test
@@ -270,6 +271,9 @@ class TestSubscriberAck {
 
         val subscriber = createSubscriber(response)
         subscriber.ack(listOf("ack-1", "ack-2"))
+
+        assertEquals(1, subscriber.ackCalls.get())
+        assertEquals(0, subscriber.nackCalls.get())
     }
 
     @Test
@@ -333,6 +337,8 @@ class TestSubscriberNack {
 
         val subscriber = createSubscriber(response)
         subscriber.nack(listOf("nack-1", "nack-2"))
+
+        assertEquals(1, subscriber.nackCalls.get())
     }
 
     @Test

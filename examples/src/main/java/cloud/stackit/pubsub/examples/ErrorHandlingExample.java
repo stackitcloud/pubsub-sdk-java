@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.examples;
 
 import cloud.stackit.pubsub.sdk.auth.AuthConfig;
 import cloud.stackit.pubsub.sdk.client.PubSubClient;
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError;
+import cloud.stackit.pubsub.sdk.errors.PubSubError;
 import cloud.stackit.pubsub.sdk.models.PublishMessage;
 
 import java.util.Base64;
@@ -37,12 +37,7 @@ public class ErrorHandlingExample {
         System.out.println("--- Example 2: Error Handling ---");
 
         try {
-            AuthConfig authConfig = new AuthConfig(
-                null,
-                "sa-key.json",
-                null,
-                null
-            );
+            AuthConfig authConfig = new AuthConfig(null, "sa-key.json");
 
             PubSubClient client = new PubSubClient(TOPIC_ID, authConfig);
             var publisher = client.getPublisher();
@@ -51,14 +46,17 @@ public class ErrorHandlingExample {
             PublishMessage message = new PublishMessage(Base64.getEncoder().encodeToString("test".getBytes()));
             publisher.publish(List.of(message));
 
-        } catch (PubSubAuthError.MissingCredentials e) {
+        } catch (PubSubError.AuthError.MissingCredentials e) {
             System.err.println("Missing credentials - please configure a service account key");
-        } catch (PubSubAuthError.TokenAcquisitionFailed e) {
+        } catch (PubSubError.AuthError.TokenAcquisitionFailed e) {
             System.err.println("Token acquisition failed: " + e.getMessage());
             // This catches HTTP errors (4xx, 5xx) and network errors
             if (e.getCause() != null) {
                 System.err.println("  Caused by: " + e.getCause().getClass().getSimpleName());
             }
+        } catch (PubSubError.HttpError e) {
+            // Thrown for non-retryable API responses (400, 401, 403, 404, 413) and exhausted retries on 5xx
+            System.err.println("API error (" + e.getClass().getSimpleName() + "): " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Unexpected error: " + e.getMessage());
         }

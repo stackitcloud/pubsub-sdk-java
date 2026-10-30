@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.examples;
 
 import cloud.stackit.pubsub.sdk.auth.AuthConfig;
 import cloud.stackit.pubsub.sdk.client.PubSubClient;
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError;
+import cloud.stackit.pubsub.sdk.errors.PubSubError;
 import cloud.stackit.pubsub.sdk.models.PublishMessage;
 
 import java.util.Base64;
@@ -37,12 +37,7 @@ public class BatchExample {
         System.out.println("--- Example 3: Batch Publishing ---");
 
         try {
-            AuthConfig authConfig = new AuthConfig(
-                null,
-                "sa-key.json",
-                null,
-                "https://authorization.stackit.cloud/auth/token"
-            );
+            AuthConfig authConfig = new AuthConfig(null, "sa-key.json");
 
             PubSubClient client = new PubSubClient(TOPIC_ID, authConfig);
             var publisher = client.getPublisher();
@@ -58,7 +53,7 @@ public class BatchExample {
             System.out.println("Total messages sent: " + publisher.getMessagesSent());
             System.out.println("Total publish calls: " + publisher.getPublishCalls());
 
-        } catch (PubSubAuthError e) {
+        } catch (PubSubError e) {
             System.err.println("PubSub error: " + e.getMessage());
         }
     }

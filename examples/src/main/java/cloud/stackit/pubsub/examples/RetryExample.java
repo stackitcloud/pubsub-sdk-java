@@ -18,7 +18,7 @@ package cloud.stackit.pubsub.examples;
 
 import cloud.stackit.pubsub.sdk.auth.AuthConfig;
 import cloud.stackit.pubsub.sdk.client.PubSubClient;
-import cloud.stackit.pubsub.sdk.errors.PubSubAuthError;
+import cloud.stackit.pubsub.sdk.errors.PubSubError;
 import cloud.stackit.pubsub.sdk.models.PublishMessage;
 import cloud.stackit.pubsub.sdk.retry.RetryConfig;
 
@@ -38,12 +38,7 @@ public class RetryExample {
         System.out.println("--- Example 5: Custom Retry Configuration ---");
 
         try {
-            AuthConfig authConfig = new AuthConfig(
-                null,
-                "sa-key.json",
-                null,
-                null
-            );
+            AuthConfig authConfig = new AuthConfig(null, "sa-key.json");
 
             PubSubClient client = new PubSubClient(TOPIC_ID, authConfig);
 
@@ -70,7 +65,7 @@ public class RetryExample {
             System.out.println("Published with custom retry config");
             System.out.println("Messages sent: " + publisher.getMessagesSent());
 
-        } catch (PubSubAuthError e) {
+        } catch (PubSubError e) {
             System.err.println("PubSub error after retries: " + e.getMessage());
             // Note: After all retries are exhausted, the error includes retry information
             if (e.getMessage().contains("retries")) {
