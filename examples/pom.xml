@@ -60,9 +60,6 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.4.1</version>
-                <configuration>
-                    <mainClass>cloud.stackit.pubsub.examples.Examples</mainClass>
-                </configuration>
             </plugin>
         </plugins>
     </build>

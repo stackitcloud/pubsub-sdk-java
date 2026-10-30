@@ -131,7 +131,14 @@ Standalone example programs demonstrating common patterns are in [`examples/`](e
 - `PurgeExample.java` — topic purging
 - `RetryExample.java` — custom retry configuration
 
-The examples depend on the published SDK version set in `examples/pom.xml` (`pubsub-sdk.version`). To run them against your local checkout instead:
+The examples depend on the published SDK version set in `examples/pom.xml` (`pubsub-sdk.version`). Run one by passing its main class:
+
+```sh
+cd examples
+mvn compile exec:java -Dexec.mainClass=cloud.stackit.pubsub.examples.BasicExample
+```
+
+To run them against your local checkout instead:
 
 ```sh
 ./gradlew publishToMavenLocal -PreleaseVersion=0.0.0-local
